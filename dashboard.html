@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="증시 대시보드">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f9f9f7">
+<title>미국증시 실시간 대시보드</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page-plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --border: rgba(11,11,11,0.10);
+    --up: #e34948;
+    --down: #2a78d6;
+    --flat: #898781;
+    --accent: #eda100;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19;
+      --page-plane: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --border: rgba(255,255,255,0.10);
+      --up: #e66767;
+      --down: #3987e5;
+      --flat: #898781;
+      --accent: #c98500;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 0 60px; }
+  .inner { padding: 20px 20px 0; }
+  header.top { margin-bottom: 8px; }
+  header.top h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  header.top .sub { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+  header.top .sub b { color: var(--accent); }
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    margin: 18px 0 16px;
+    border-bottom: 1px solid var(--grid);
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  nav.tabs button.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+  }
+  section.panel { display: none; }
+  section.panel.active { display: block; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    padding: 14px 16px 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+  .card-note { padding: 0 16px 14px; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+  .sector-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; padding: 0 16px 12px; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .sector-desc:first-of-type { border-top: none; padding-top: 0; }
+  .memo-row { display: flex; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--grid); font-size: 12px; }
+  .memo-date { flex: 0 0 auto; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .memo-text { color: var(--text-secondary); line-height: 1.5; }
+  .supp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .supp-table th, .supp-table td { text-align: right; padding: 8px 12px; border-top: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .supp-table th:first-child, .supp-table td:first-child { text-align: left; font-weight: 700; }
+  .supp-table th { font-size: 11px; color: var(--text-muted); font-weight: 600; border-top: none; }
+  .supp-table td.up { color: var(--up); }
+  .supp-table td.down { color: var(--down); }
+  .needchk { color: var(--text-muted); font-weight: 500; }
+  .sector-desc b { color: var(--text-secondary); }
+  footer.foot {
+    margin: 24px 20px 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--grid);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .cal-month { margin-bottom: 20px; }
+  .cal-month-title { font-size: 15px; font-weight: 800; margin: 0 16px 8px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--grid); border-top: 1px solid var(--grid); }
+  .cal-weekday { background: var(--surface-1); text-align: center; font-size: 10px; color: var(--text-muted); padding: 6px 2px; font-weight: 700; }
+  .cal-cell { background: var(--surface-1); min-height: 52px; padding: 4px 5px; }
+  .cal-cell.empty { background: var(--surface-1); opacity: 0.35; }
+  .cal-daynum { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .cal-chip { margin-top: 3px; font-size: 10px; font-weight: 700; color: var(--accent); background: rgba(237,161,0,0.12); border-radius: 4px; padding: 1px 4px; display: inline-block; line-height: 1.4; }
+  .cal-chip + .cal-chip { margin-top: 2px; }
+  .earn-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid var(--grid);
+  }
+  .card .earn-row:first-of-type { border-top: none; }
+  .earn-date { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .earn-name { font-size: 14px; font-weight: 700; }
+  .earn-tag { font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="inner">
+  <header class="top">
+    <h1>미국증시 실시간 대시보드</h1>
+    <div class="sub">TradingView 실시간 시세 위젯 기반 · 열 때마다 자동으로 최신 데이터가 표시됩니다(제가 따로 갱신 안 해도 됩니다) · 무료 위젯 특성상 <b>약 15~20분 지연 시세</b>일 수 있음</div>
+  </header>
+
+  <!-- Ticker Tape: always-visible scrolling banner -->
+  <div class="tradingview-widget-container">
+    <div class="tradingview-widget-container__widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+    {
+      "symbols": [
+        {"proName": "NASDAQ:NVDA", "title": "엔비디아"},
+        {"proName": "NASDAQ:AAPL", "title": "애플"},
+        {"proName": "NASDAQ:MSFT", "title": "마이크로소프트"},
+        {"proName": "NASDAQ:GOOGL", "title": "알파벳"},
+        {"proName": "NASDAQ:AMZN", "title": "아마존"},
+        {"proName": "NASDAQ:META", "title": "메타"},
+        {"proName": "NASDAQ:TSLA", "title": "테슬라"},
+        {"proName": "KRX:005930", "title": "삼성전자"},
+        {"proName": "FOREXCOM:SPXUSD", "title": "S&P500"},
+        {"proName": "TVC:VIX", "title": "VIX"}
+      ],
+      "showSymbolLogo": true,
+      "isTransparent": true,
+      "displayMode": "adaptive",
+      "colorTheme": "light",
+      "locale": "kr"
+    }
+    </script>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="overview">개요</button>
+    <button class="tab-btn" data-tab="m7">M7</button>
+    <button class="tab-btn" data-tab="us30">미국TOP30</button>
+    <button class="tab-btn" data-tab="kr10">한국TOP10</button>
+    <button class="tab-btn" data-tab="etf">ETF</button>
+    <button class="tab-btn" data-tab="macro">매크로·심리</button>
+    <button class="tab-btn" data-tab="earnings">실적캘린더</button>
+  </nav>
+
+  <!-- ================= 개요 ================= -->
+  <section class="panel active" id="overview">
+    <div class="card">
+      <div class="card-title">주요 지수 (미국 · 한국)</div>
+      <div class="tradingview-widget-container" style="height:400px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
+        {
+          "colorTheme": "light",
+          "dateRange": "1D",
+          "showChart": true,
+          "locale": "kr",
+          "width": "100%",
+          "height": "400",
+          "largeChartUrl": "",
+          "isTransparent": true,
+          "showSymbolLogo": true,
+          "showFloatingTooltip": false,
+          "tabs": [
+            {
+              "title": "미국 지수",
+              "symbols": [
+                {"s": "FOREXCOM:SPXUSD", "d": "S&P500"},
+                {"s": "FOREXCOM:NSXUSD", "d": "나스닥100"},
+                {"s": "FOREXCOM:DJI", "d": "다우존스"},
+                {"s": "TVC:VIX", "d": "VIX 공포지수"}
+              ],
+              "originalTitle": "US"
+            },
+            {
+              "title": "한국 · 매크로",
+              "symbols": [
+                {"s": "KRX:KOSPI", "d": "코스피"},
+                {"s": "TVC:DXY", "d": "달러인덱스"},
+                {"s": "TVC:US10Y", "d": "美10년물"},
+                {"s": "FX_IDC:USDKRW", "d": "원달러 환율"}
+              ],
+              "originalTitle": "KR"
+            }
+          ]
+        }
+        </script>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">S&amp;P500 히트맵 (섹터별)</div>
+      <div class="tradingview-widget-container" style="height:400px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
+        {
+          "exchanges": [],
+          "dataSource": "SPX500",
+          "grouping": "sector",
+          "blockSize": "market_cap_basic",
+          "blockColor": "change",
+          "locale": "kr",
+          "symbolUrl": "",
+          "colorTheme": "light",
+          "hasTopBar": true,
+          "isDataSetEnabled": true,
+          "isZoomEnabled": true,
+          "hasSymbolTooltip": true,
+          "isMonoSize": false,
+          "width": "100%",
+          "height": "400"
+        }
+        </script>
+      </div>
+      <div class="card-note">S&amp;P500 전체 종목을 시총 크기·등락률 색으로 보여주는 지도입니다. 빨강=상승, 파랑=하락 (한국식 색상 배색).</div>
+    </div>
+  </section>
+
+  <!-- ================= M7 ================= -->
+  <section class="panel" id="m7">
+    <div class="card">
+      <div class="card-title">매그니피센트7</div>
+      <div class="tradingview-widget-container" style="height:420px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+        {
+          "title": "M7",
+          "width": "100%",
+          "height": "420",
+          "locale": "kr",
+          "showSymbolLogo": true,
+          "symbolsGroups": [
+            {
+              "name": "M7",
+              "symbols": [
+                {"name": "NASDAQ:NVDA", "displayName": "엔비디아"},
+                {"name": "NASDAQ:AAPL", "displayName": "애플"},
+                {"name": "NASDAQ:MSFT", "displayName": "마이크로소프트"},
+                {"name": "NASDAQ:GOOGL", "displayName": "알파벳"},
+                {"name": "NASDAQ:AMZN", "displayName": "아마존"},
+                {"name": "NASDAQ:META", "displayName": "메타"},
+                {"name": "NASDAQ:TSLA", "displayName": "테슬라"}
+              ]
+            }
+          ],
+          "colorTheme": "light"
+        }
+        </script>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+      <table class="supp-table">
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <tbody>
+          <tr><td>엔비디아</td><td class="down">-12.6%</td><td class="up">+1.99%</td><td class="up">+10.91%</td><td class="down">2일 연속 하락</td></tr>
+          <tr><td>애플</td><td class="down">-0.6%</td><td class="down">-0.22%</td><td class="up">+22.50%</td><td class="up">1일 상승</td></tr>
+          <tr><td>마이크로소프트</td><td class="down">-31.3%<span class="needchk">*</span></td><td class="down">-3.08%</td><td class="down">-21.07%</td><td class="up">1일 상승</td></tr>
+          <tr><td>알파벳</td><td class="down">-21.7%</td><td class="down">-7.79%</td><td class="up">+2.15%</td><td class="up">1일 상승</td></tr>
+          <tr><td>아마존</td><td class="down">-16.7%</td><td class="down">-6.12%</td><td class="up">+0.56%</td><td class="down">4일 연속 하락</td></tr>
+          <tr><td>메타</td><td class="down">-25.3%</td><td class="down">-7.87%</td><td class="down">-9.83%</td><td class="down">7일+ 연속 하락<span class="needchk">**</span></td></tr>
+          <tr><td>테슬라</td><td class="down">-37.2%</td><td class="down">-17.81%</td><td class="down">-30.39%</td><td class="down">3일 연속 하락</td></tr>
+        </tbody>
+      </table>
+      <div class="card-note">2026-07-22 조사 기준(단일 소스 Barchart/stockanalysis.com, 빠른 보조 조사라 전체 정밀검증 대비 신뢰도 낮음). * MSFT 52주 고점 수치가 최근 주가 흐름과 비교해 이례적으로 커 보여 재확인 권장. ** 메타는 조회 가능했던 최근 8거래일이 전부 하락이라 실제 연속하락일이 더 길 수 있음(데이터 창 한계). 이 표는 위젯처럼 실시간이 아니라 제가 가끔 수동으로 갱신하는 값입니다 — 최신화 원하시면 말씀해주세요.</div>
+    </div>
+  </section>
+
+  <!-- ================= 미국TOP30 ================= -->
+  <section class="panel" id="us30">
+    <div class="card">
+      <div class="card-title">미국 시총 TOP30</div>
+      <div class="tradingview-widget-container" style="height:1200px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+        {
+          "title": "US30",
+          "width": "100%",
+          "height": "1200",
+          "locale": "kr",
+          "showSymbolLogo": true,
+          "symbolsGroups": [
+            {
+              "name": "미국TOP30",
+              "symbols": [
+                {"name": "NASDAQ:NVDA", "displayName": "엔비디아"},
+                {"name": "NASDAQ:AAPL", "displayName": "애플"},
+                {"name": "NASDAQ:MSFT", "displayName": "마이크로소프트"},
+                {"name": "NASDAQ:GOOGL", "displayName": "알파벳"},
+                {"name": "NASDAQ:AMZN", "displayName": "아마존"},
+                {"name": "NASDAQ:META", "displayName": "메타"},
+                {"name": "NASDAQ:TSLA", "displayName": "테슬라"},
+                {"name": "NYSE:TSM", "displayName": "TSMC"},
+                {"name": "NASDAQ:AVGO", "displayName": "브로드컴"},
+                {"name": "NYSE:BRK.B", "displayName": "버크셔해서웨이"},
+                {"name": "NYSE:LLY", "displayName": "일라이릴리"},
+                {"name": "NASDAQ:MU", "displayName": "마이크론"},
+                {"name": "NYSE:JPM", "displayName": "JP모건"},
+                {"name": "NYSE:WMT", "displayName": "월마트"},
+                {"name": "NASDAQ:AMD", "displayName": "AMD"},
+                {"name": "NYSE:V", "displayName": "비자"},
+                {"name": "NASDAQ:ASML", "displayName": "ASML"},
+                {"name": "NYSE:XOM", "displayName": "엑슨모빌"},
+                {"name": "NYSE:JNJ", "displayName": "존슨앤존슨"},
+                {"name": "NASDAQ:INTC", "displayName": "인텔"},
+                {"name": "NYSE:MA", "displayName": "마스터카드"},
+                {"name": "NYSE:ABBV", "displayName": "애브비"},
+                {"name": "NASDAQ:CSCO", "displayName": "시스코"},
+                {"name": "NASDAQ:AMAT", "displayName": "어플라이드머티리얼즈"},
+                {"name": "NASDAQ:COST", "displayName": "코스트코"},
+                {"name": "NYSE:CAT", "displayName": "캐터필러"},
+                {"name": "NASDAQ:LRCX", "displayName": "램리서치"},
+                {"name": "NYSE:CVX", "displayName": "쉐브론"},
+                {"name": "NYSE:ORCL", "displayName": "오라클"},
+                {"name": "NASDAQ:ARM", "displayName": "ARM"}
+              ]
+            }
+          ],
+          "colorTheme": "light"
+        }
+        </script>
+      </div>
+      <div class="card-note">시총순 정렬은 위젯 자체 실시간 값 기준이 아니라 목록 순서 그대로입니다. 정확한 시총순 정렬이 필요하면 각 열의 "시가총액" 컬럼을 눌러 정렬하세요.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+      <table class="supp-table">
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <tbody>
+          <tr><td>TSMC</td><td class="down">-15.8%</td><td class="up">+1.27%</td><td class="up">+32.75%</td><td class="down">3일 하락</td></tr>
+          <tr><td>브로드컴</td><td class="down">-22.8%</td><td class="up">+2.99%</td><td class="up">+10.35%</td><td class="down">2일 하락</td></tr>
+          <tr><td>버크셔해서웨이</td><td class="down">-4.2%</td><td class="up">+0.82%</td><td class="down">-1.54%</td><td class="up">2일 상승</td></tr>
+          <tr><td>일라이릴리</td><td class="down">-4.3%</td><td class="up">+1.43%</td><td class="up">+11.29%</td><td class="up">2일 상승</td></tr>
+          <tr><td>마이크론</td><td class="down">-26.6%</td><td class="up">+8.48%</td><td class="up">+222.68%<span class="needchk">*</span></td><td class="down">1일 하락</td></tr>
+          <tr><td>JP모건</td><td class="down">-0.0%</td><td class="up">+3.55%</td><td class="up">+9.62%</td><td class="up">4일 상승</td></tr>
+          <tr><td>월마트</td><td class="down">-19.0%</td><td class="down">-4.18%</td><td class="down">-1.74%</td><td class="up">1일 상승</td></tr>
+          <tr><td>AMD</td><td class="down">-10.7%</td><td class="up">+5.28%</td><td class="up">+143.72%</td><td class="down">2일 하락</td></tr>
+          <tr><td>비자</td><td class="down">-2.6%</td><td class="down">-0.79%</td><td class="up">+1.43%</td><td class="up">1일 상승</td></tr>
+          <tr><td>ASML</td><td class="down">-12.1%</td><td class="up">+0.54%</td><td class="up">+64.24%</td><td class="down">1일 하락</td></tr>
+          <tr><td>엑슨모빌</td><td class="down">-11.0%</td><td class="up">+6.50%</td><td class="up">+30.41%</td><td class="up">7일 상승</td></tr>
+          <tr><td>존슨앤존슨</td><td class="down">-2.2%</td><td class="up">+4.09%</td><td class="up">+27.28%</td><td class="up">4일 상승</td></tr>
+          <tr><td>인텔</td><td class="down">-35.1%</td><td class="down">-2.86%</td><td class="up">+150.19%</td><td class="down">3일 하락</td></tr>
+          <tr><td>마스터카드</td><td class="down">-10.3%</td><td class="down">-0.72%</td><td class="down">-5.47%</td><td class="up">1일 상승</td></tr>
+          <tr><td>애브비</td><td class="down">-0.9%</td><td class="up">+1.91%</td><td class="up">+13.51%</td><td class="up">2일 상승</td></tr>
+          <tr><td>시스코</td><td class="down">-12.4%</td><td class="up">+1.99%</td><td class="up">+48.21%</td><td class="up">4일 상승</td></tr>
+          <tr><td>어플라이드머티리얼즈</td><td class="down">-27.5%</td><td class="up">+1.24%</td><td class="up">+108.67%</td><td class="down">1일 하락</td></tr>
+          <tr><td>코스트코</td><td class="down">-14.7%</td><td class="down">-0.62%</td><td class="up">+8.43%</td><td class="up">1일 상승</td></tr>
+          <tr><td>캐터필러</td><td class="down">-17.2%</td><td class="up">+0.96%</td><td class="up">+55.14%</td><td class="down">1일 하락</td></tr>
+          <tr><td>램리서치</td><td class="down">-30.4%</td><td class="down">-2.58%</td><td class="up">+78.30%</td><td class="down">1일 하락</td></tr>
+          <tr><td>쉐브론</td><td class="down">-9.3%</td><td class="up">+3.95%</td><td class="up">+27.81%</td><td class="up">7일 상승</td></tr>
+          <tr><td>오라클</td><td class="down">-66.7%<span class="needchk">*</span></td><td class="down">-9.03%</td><td class="down">-41.00%<span class="needchk">*</span></td><td class="down">3일 하락</td></tr>
+          <tr><td>ARM</td><td class="down">-42.6%</td><td class="down">-7.18%</td><td class="up">+150.70%</td><td class="down">3일 하락</td></tr>
+        </tbody>
+      </table>
+      <div class="card-note">조사 시점 기준(단일/이중 소스, 빠른 보조 조사라 전체 정밀검증 대비 신뢰도 낮음). * 마이크론 YTD(+223%)와 오라클(고점대비 -67%, YTD -41%)은 수치가 이례적으로 커서 재확인을 권장합니다. 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+    </div>
+  </section>
+
+  <!-- ================= 한국TOP10 ================= -->
+  <section class="panel" id="kr10">
+    <div class="card">
+      <div class="card-title">한국 시총 TOP10</div>
+      <div class="tradingview-widget-container" style="height:420px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+        {
+          "title": "KR10",
+          "width": "100%",
+          "height": "420",
+          "locale": "kr",
+          "showSymbolLogo": true,
+          "symbolsGroups": [
+            {
+              "name": "한국TOP10",
+              "symbols": [
+                {"name": "KRX:005930", "displayName": "삼성전자"},
+                {"name": "KRX:000660", "displayName": "SK하이닉스"},
+                {"name": "KRX:373220", "displayName": "LG에너지솔루션"},
+                {"name": "KRX:207940", "displayName": "삼성바이오로직스"},
+                {"name": "KRX:005380", "displayName": "현대차"},
+                {"name": "KRX:105560", "displayName": "KB금융"},
+                {"name": "KRX:028260", "displayName": "삼성물산"},
+                {"name": "KRX:032830", "displayName": "삼성생명"},
+                {"name": "KRX:009150", "displayName": "삼성전기"},
+                {"name": "KRX:402340", "displayName": "SK스퀘어"}
+              ]
+            }
+          ],
+          "colorTheme": "light"
+        }
+        </script>
+      </div>
+      <div class="card-note">KRX 종목은 TradingView 무료 위젯 데이터 제공사 특성상 일부 지연되거나 표시가 안 될 수 있습니다 — 안 뜨면 새로고침해보세요.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+      <table class="supp-table">
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <tbody>
+          <tr><td>삼성전자</td><td class="down">-33.4%</td><td class="down">-2.2%</td><td class="down">-17.4%</td><td class="down">1일 하락</td></tr>
+          <tr><td>SK하이닉스</td><td class="down">-41.1%</td><td class="down">-4.5%</td><td class="down">-12.8%</td><td class="down">1일 하락</td></tr>
+          <tr><td>LG에너지솔루션</td><td class="down">-37.5%</td><td class="down">-1.3%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
+          <tr><td>삼성바이오로직스</td><td class="down">-23.6%</td><td class="up">+8.7%<span class="needchk">*</span></td><td class="needchk">확인 필요</td><td class="up">2일 상승</td></tr>
+          <tr><td>현대차</td><td class="down">-48.8%</td><td class="down">-5.6%</td><td class="down">-35.5%</td><td class="down">1일 하락</td></tr>
+          <tr><td>KB금융</td><td class="down">-11.8%</td><td class="down">-5.3%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
+          <tr><td>삼성물산</td><td class="down">-39.5%</td><td class="down">-1.2%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
+          <tr><td>삼성생명</td><td class="down">-38.4%</td><td class="down">-3.9%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
+          <tr><td>삼성전기</td><td class="down">-45.1%</td><td class="up">+3.8%</td><td class="down">-23.9%</td><td class="down">1일 하락</td></tr>
+          <tr><td>SK스퀘어</td><td class="down">-49.3%</td><td class="down">-8.5%</td><td class="needchk">확인 필요</td><td class="down">3일 하락</td></tr>
+        </tbody>
+      </table>
+      <div class="card-note">조사 시점 기준 코스피 급락일(-5.72%) 데이터라 하락 종목이 많습니다. * 삼성바이오로직스만 시장과 반대로 +8.7%/2일 연속 상승 — 두 소스로 교차확인했지만 이례적이라 참고 바랍니다. 26년 YTD는 신뢰 가능한 연초 종가를 못 찾은 종목이 많아 "확인 필요"로 남겼습니다(추정 금지). 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+    </div>
+  </section>
+
+  <!-- ================= ETF ================= -->
+  <section class="panel" id="etf">
+    <div class="card">
+      <div class="card-title">주요 ETF (AUM 상위 10 + 섹터 ETF 9)</div>
+      <div class="tradingview-widget-container" style="height:800px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+        {
+          "title": "ETF",
+          "width": "100%",
+          "height": "800",
+          "locale": "kr",
+          "showSymbolLogo": true,
+          "symbolsGroups": [
+            {
+              "name": "AUM 상위 10",
+              "symbols": [
+                {"name": "AMEX:VOO", "displayName": "VOO"},
+                {"name": "AMEX:IVV", "displayName": "IVV"},
+                {"name": "AMEX:SPY", "displayName": "SPY"},
+                {"name": "AMEX:VTI", "displayName": "VTI"},
+                {"name": "NASDAQ:QQQ", "displayName": "QQQ"},
+                {"name": "AMEX:VEA", "displayName": "VEA"},
+                {"name": "AMEX:VUG", "displayName": "VUG"},
+                {"name": "AMEX:IEFA", "displayName": "IEFA"},
+                {"name": "AMEX:VTV", "displayName": "VTV"},
+                {"name": "NASDAQ:BND", "displayName": "BND"}
+              ]
+            },
+            {
+              "name": "섹터 ETF 9종",
+              "symbols": [
+                {"name": "AMEX:XLK", "displayName": "XLK 기술"},
+                {"name": "AMEX:XLF", "displayName": "XLF 금융"},
+                {"name": "AMEX:XLV", "displayName": "XLV 헬스케어"},
+                {"name": "AMEX:XLY", "displayName": "XLY 임의소비재"},
+                {"name": "AMEX:XLP", "displayName": "XLP 필수소비재"},
+                {"name": "AMEX:XLE", "displayName": "XLE 에너지"},
+                {"name": "AMEX:XLI", "displayName": "XLI 산업재"},
+                {"name": "AMEX:XLB", "displayName": "XLB 소재"},
+                {"name": "AMEX:XLU", "displayName": "XLU 유틸리티"}
+              ]
+            }
+          ],
+          "colorTheme": "light"
+        }
+        </script>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">섹터 ETF는 각각 이럴 때 오르고 내립니다</div>
+      <div class="sector-desc"><b>XLK 기술</b> — 애플·MSFT·엔비디아 등 대형 IT·반도체. 금리 하락, AI/실적 기대감엔 강세 · 금리 급등, 성장주 조정엔 약세.</div>
+      <div class="sector-desc"><b>XLF 금융</b> — 은행·보험·자산운용. 금리 상승, 경기 호조엔 강세 · 경기침체 우려, 신용부실 리스크엔 약세.</div>
+      <div class="sector-desc"><b>XLV 헬스케어</b> — 제약·바이오·의료기기. 경기와 무관하게 방어적 · 약가 규제, 정책 리스크엔 약세.</div>
+      <div class="sector-desc"><b>XLY 임의소비재</b> — 아마존·테슬라 등 경기소비재. 소비심리·고용 호조엔 강세 · 금리 인상, 소비 위축엔 약세.</div>
+      <div class="sector-desc"><b>XLP 필수소비재</b> — 생필품·유통. 증시 조정기엔 상대적 강세(방어주) · 강세장에서는 소외.</div>
+      <div class="sector-desc"><b>XLE 에너지</b> — 정유·가스. 유가 상승, 지정학 리스크엔 강세 · 유가 하락, 수요 둔화엔 약세.</div>
+      <div class="sector-desc"><b>XLI 산업재</b> — 제조·항공·건설장비. 경기 확장, 인프라 투자엔 강세 · 경기 둔화엔 약세.</div>
+      <div class="sector-desc"><b>XLB 소재</b> — 화학·철강·광산. 원자재 가격 상승, 달러 약세엔 강세 · 경기 둔화, 달러 강세엔 약세.</div>
+      <div class="sector-desc"><b>XLU 유틸리티</b> — 전력·가스·수도. 금리 하락기, 안전자산 선호엔 강세 · 금리 상승기엔 약세.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+      <table class="supp-table">
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <tbody>
+          <tr><td>VOO</td><td class="down">-2.9%</td><td class="down">-0.59%</td><td class="up">+8.29%</td><td class="up">1일 상승</td></tr>
+          <tr><td>IVV</td><td class="down">-2.8%</td><td class="down">-0.58%</td><td class="up">+8.38%</td><td class="up">1일 상승</td></tr>
+          <tr><td>SPY</td><td class="down">-2.8%</td><td class="down">-0.59%</td><td class="up">+8.36%</td><td class="up">1일 상승</td></tr>
+          <tr><td>VTI</td><td class="down">-2.6%</td><td class="down">-0.60%</td><td class="up">+8.81%</td><td class="up">1일 상승</td></tr>
+          <tr><td>QQQ</td><td class="down">-8.6%</td><td class="down">-1.60%</td><td class="up">+11.38%</td><td class="down">3일 하락</td></tr>
+          <tr><td>VEA</td><td class="down">-4.8%</td><td class="up">+0.01%</td><td class="up">+11.59%</td><td class="down">2일 하락</td></tr>
+          <tr><td>VUG</td><td class="down">-7.9%</td><td class="down">-2.10%</td><td class="up">+2.67%</td><td class="down">3일 하락</td></tr>
+          <tr><td>IEFA</td><td class="down">-2.5%</td><td class="up">+0.09%</td><td class="up">+7.69%</td><td class="up">1일 상승</td></tr>
+          <tr><td>VTV</td><td class="down">-0.5%</td><td class="up">+1.42%</td><td class="up">+15.72%</td><td class="up">4일 상승</td></tr>
+          <tr><td>BND</td><td class="down">-3.9%</td><td class="down">-0.75%</td><td class="down">-2.38%</td><td class="up">1일 상승</td></tr>
+          <tr><td>XLK</td><td class="down">-11.5%</td><td class="up">+0.17%</td><td class="up">+22.16%</td><td class="down">3일 하락</td></tr>
+          <tr><td>XLF</td><td class="down">-1.1%</td><td class="up">+0.09%</td><td class="up">+2.81%</td><td class="up">1일 상승</td></tr>
+          <tr><td>XLV</td><td class="down">-1.8%</td><td class="up">+0.92%</td><td class="up">+5.02%</td><td class="up">2일 상승</td></tr>
+          <tr><td>XLY</td><td class="down">-12.5%</td><td class="down">-5.22%</td><td class="down">-8.37%</td><td class="up">1일 상승</td></tr>
+          <tr><td>XLP</td><td class="down">-6.7%</td><td class="down">-1.24%</td><td class="up">+8.30%</td><td class="up">1일 상승</td></tr>
+          <tr><td>XLE</td><td class="down">-6.1%</td><td class="up">+3.36%</td><td class="up">+33.35%</td><td class="up">7일 상승<span class="needchk">*</span></td></tr>
+          <tr><td>XLI</td><td class="down">-2.0%</td><td class="up">+1.81%</td><td class="up">+17.75%</td><td class="up">4일 상승</td></tr>
+          <tr><td>XLB</td><td class="down">-5.3%</td><td class="up">+1.44%</td><td class="up">+13.03%</td><td class="up">1일 상승</td></tr>
+          <tr><td>XLU</td><td class="down">-3.2%</td><td class="up">+2.48%</td><td class="up">+8.43%</td><td class="up">3일 상승</td></tr>
+        </tbody>
+      </table>
+      <div class="card-note">조사 시점 기준. * XLE의 7일 연속 상승은 이례적으로 길어 재확인 권장. BND는 채권 ETF라 변동폭이 작고 26년 YTD가 마이너스인 게 정상 범위입니다. 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+    </div>
+  </section>
+
+  <!-- ================= 매크로·심리 ================= -->
+  <section class="panel" id="macro">
+    <div class="card">
+      <div class="card-title">매크로 지표</div>
+      <div class="tradingview-widget-container" style="height:400px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+        {
+          "title": "매크로",
+          "width": "100%",
+          "height": "400",
+          "locale": "kr",
+          "showSymbolLogo": true,
+          "symbolsGroups": [
+            {
+              "name": "매크로",
+              "symbols": [
+                {"name": "TVC:VIX", "displayName": "VIX 공포지수"},
+                {"name": "TVC:US10Y", "displayName": "美10년물 금리"},
+                {"name": "TVC:US02Y", "displayName": "美2년물 금리"},
+                {"name": "TVC:DXY", "displayName": "달러인덱스"},
+                {"name": "TVC:USOIL", "displayName": "WTI 원유"},
+                {"name": "TVC:GOLD", "displayName": "금"},
+                {"name": "COINBASE:BTCUSD", "displayName": "비트코인"},
+                {"name": "FX_IDC:USDKRW", "displayName": "원달러 환율"}
+              ]
+            }
+          ],
+          "colorTheme": "light"
+        }
+        </script>
+      </div>
+      <div class="card-note">CNN Fear &amp; Greed Index는 TradingView 위젯으로 제공되지 않아 제외했습니다 — <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener">cnn.com/markets/fear-and-greed</a>에서 직접 확인하세요.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+      <table class="supp-table">
+        <thead><tr><th>자산</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <tbody>
+          <tr><td>VIX</td><td class="down">-46.6%</td><td class="up">+0.4%</td><td class="up">+0.3%</td><td class="up">2일 상승</td></tr>
+          <tr><td>美10년물</td><td class="down">-0.4%</td><td class="up">+3.1%</td><td class="up">+12.7%</td><td class="down">1일 하락</td></tr>
+          <tr><td>美2년물</td><td class="down">-0.5%</td><td class="up">+3.8%</td><td class="up">+20.6%<span class="needchk">*</span></td><td class="down">1일 하락</td></tr>
+          <tr><td>달러인덱스</td><td class="down">-0.3%</td><td class="up">+0.9%<span class="needchk">*</span></td><td class="up">+3.3%</td><td class="needchk">확인 필요</td></tr>
+          <tr><td>WTI 원유</td><td class="down">-15.9%</td><td class="up">+9.5%<span class="needchk">*</span></td><td class="up">+25.2%<span class="needchk">*</span></td><td class="down">1일 하락</td></tr>
+          <tr><td>금</td><td class="down">-27.7%</td><td class="up">+2.0%</td><td class="down">-6.1%</td><td class="needchk">확인 필요</td></tr>
+          <tr><td>비트코인</td><td class="down">-48.5%</td><td class="up">+2.0%</td><td class="down">-25.7%</td><td class="down">2일 하락</td></tr>
+          <tr><td>원달러 환율</td><td class="down">-5.4%</td><td class="down">-0.7%<span class="needchk">*</span></td><td class="up">+2.2%</td><td class="needchk">확인 필요</td></tr>
+        </tbody>
+      </table>
+      <div class="card-note">조사 시점 기준. * 표시는 정확히 일치하는 종가를 찾지 못해 인접일 데이터로 보간한 근사치이거나(주간·YTD), 정확한 연속일수를 확인하지 못한 값입니다 — 재확인 권장. 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">경제 캘린더 (FOMC·CPI 등 거시 이벤트)</div>
+      <div class="tradingview-widget-container" style="height:500px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+        {
+          "colorTheme": "light",
+          "isTransparent": true,
+          "width": "100%",
+          "height": "500",
+          "locale": "kr",
+          "importanceFilter": "-1,0,1",
+          "countryFilter": "us,kr"
+        }
+        </script>
+      </div>
+    </div>
+
+    <div class="card-title" style="padding:8px 4px 4px;">이벤트 메모 차트</div>
+    <div class="card-note" style="padding:0 4px 12px;">차트 위 메모는 로그인 없이는 저장이 안 돼서, 대신 차트 아래에 제가 관리하는 메모 표를 뒀어요. "여기에 OO 사건 추가해줘"라고 말씀해주시면 바로 추가/수정해드립니다.</div>
+
+    <div class="card">
+      <div class="card-title">WTI 원유</div>
+      <div class="tradingview-widget-container" style="height:360px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "autosize": true,
+          "symbol": "TVC:USOIL",
+          "interval": "D",
+          "timezone": "Asia/Seoul",
+          "theme": "light",
+          "style": "1",
+          "locale": "kr",
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "support_host": "https://www.tradingview.com"
+        }
+        </script>
+      </div>
+      <div class="memo-row"><div class="memo-date">예시</div><div class="memo-text">(예시) 여기에 "2026-06-13 이란-이스라엘 전쟁 발발" 같은 메모를 추가해드릴 수 있어요 — 실제 날짜/사건을 알려주세요.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">브렌트유</div>
+      <div class="tradingview-widget-container" style="height:360px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "autosize": true,
+          "symbol": "TVC:UKOIL",
+          "interval": "D",
+          "timezone": "Asia/Seoul",
+          "theme": "light",
+          "style": "1",
+          "locale": "kr",
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "support_host": "https://www.tradingview.com"
+        }
+        </script>
+      </div>
+      <div class="memo-row"><div class="memo-date">예시</div><div class="memo-text">(예시) 브렌트유 급등락 시점에 사건 메모를 남길 수 있어요.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">금</div>
+      <div class="tradingview-widget-container" style="height:360px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "autosize": true,
+          "symbol": "TVC:GOLD",
+          "interval": "D",
+          "timezone": "Asia/Seoul",
+          "theme": "light",
+          "style": "1",
+          "locale": "kr",
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "support_host": "https://www.tradingview.com"
+        }
+        </script>
+      </div>
+      <div class="memo-row"><div class="memo-date">예시</div><div class="memo-text">(예시) 안전자산 선호 급등 시점 등을 기록할 수 있어요.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">비트코인</div>
+      <div class="tradingview-widget-container" style="height:360px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "autosize": true,
+          "symbol": "COINBASE:BTCUSD",
+          "interval": "D",
+          "timezone": "Asia/Seoul",
+          "theme": "light",
+          "style": "1",
+          "locale": "kr",
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "support_host": "https://www.tradingview.com"
+        }
+        </script>
+      </div>
+      <div class="memo-row"><div class="memo-date">예시</div><div class="memo-text">(예시) 급등락/규제 이슈 시점 등을 기록할 수 있어요.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">원달러 환율</div>
+      <div class="tradingview-widget-container" style="height:360px;">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "autosize": true,
+          "symbol": "FX_IDC:USDKRW",
+          "interval": "D",
+          "timezone": "Asia/Seoul",
+          "theme": "light",
+          "style": "1",
+          "locale": "kr",
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "support_host": "https://www.tradingview.com"
+        }
+        </script>
+      </div>
+      <div class="memo-row"><div class="memo-date">예시</div><div class="memo-text">(예시) 환율 급등락 시점(예: 한은 개입, 미 금리 발표) 등을 기록할 수 있어요.</div></div>
+    </div>
+  </section>
+
+  <!-- ================= 실적캘린더 ================= -->
+  <section class="panel" id="earnings">
+    <div class="card">
+      <div class="card-title">실적 캘린더 (달력 보기)</div>
+      <div class="cal-month">
+        <div class="cal-month-title">2026년 7월</div>
+        <div class="cal-grid">
+          <div class="cal-weekday">일</div><div class="cal-weekday">월</div><div class="cal-weekday">화</div><div class="cal-weekday">수</div><div class="cal-weekday">목</div><div class="cal-weekday">금</div><div class="cal-weekday">토</div>
+          <div class="cal-cell empty"><div class="cal-daynum">28</div></div>
+          <div class="cal-cell empty"><div class="cal-daynum">29</div></div>
+          <div class="cal-cell empty"><div class="cal-daynum">30</div></div>
+          <div class="cal-cell"><div class="cal-daynum">1</div></div>
+          <div class="cal-cell"><div class="cal-daynum">2</div></div>
+          <div class="cal-cell"><div class="cal-daynum">3</div></div>
+          <div class="cal-cell"><div class="cal-daynum">4</div></div>
+          <div class="cal-cell"><div class="cal-daynum">5</div></div>
+          <div class="cal-cell"><div class="cal-daynum">6</div></div>
+          <div class="cal-cell"><div class="cal-daynum">7</div></div>
+          <div class="cal-cell"><div class="cal-daynum">8</div></div>
+          <div class="cal-cell"><div class="cal-daynum">9</div></div>
+          <div class="cal-cell"><div class="cal-daynum">10</div></div>
+          <div class="cal-cell"><div class="cal-daynum">11</div></div>
+          <div class="cal-cell"><div class="cal-daynum">12</div></div>
+          <div class="cal-cell"><div class="cal-daynum">13</div></div>
+          <div class="cal-cell"><div class="cal-daynum">14</div></div>
+          <div class="cal-cell"><div class="cal-daynum">15</div></div>
+          <div class="cal-cell"><div class="cal-daynum">16</div></div>
+          <div class="cal-cell"><div class="cal-daynum">17</div></div>
+          <div class="cal-cell"><div class="cal-daynum">18</div></div>
+          <div class="cal-cell"><div class="cal-daynum">19</div></div>
+          <div class="cal-cell"><div class="cal-daynum">20</div></div>
+          <div class="cal-cell"><div class="cal-daynum">21</div></div>
+          <div class="cal-cell"><div class="cal-daynum">22</div><div class="cal-chip">GOOGL</div><div class="cal-chip">TSLA</div></div>
+          <div class="cal-cell"><div class="cal-daynum">23</div><div class="cal-chip">INTC</div></div>
+          <div class="cal-cell"><div class="cal-daynum">24</div></div>
+          <div class="cal-cell"><div class="cal-daynum">25</div></div>
+          <div class="cal-cell"><div class="cal-daynum">26</div></div>
+          <div class="cal-cell"><div class="cal-daynum">27</div></div>
+          <div class="cal-cell"><div class="cal-daynum">28</div></div>
+          <div class="cal-cell"><div class="cal-daynum">29</div><div class="cal-chip">MSFT</div><div class="cal-chip">META</div></div>
+          <div class="cal-cell"><div class="cal-daynum">30</div><div class="cal-chip">AAPL</div><div class="cal-chip">AMZN</div></div>
+          <div class="cal-cell"><div class="cal-daynum">31</div></div>
+          <div class="cal-cell empty"><div class="cal-daynum">1</div></div>
+        </div>
+      </div>
+      <div class="cal-month">
+        <div class="cal-month-title">2026년 8월</div>
+        <div class="cal-grid">
+          <div class="cal-weekday">일</div><div class="cal-weekday">월</div><div class="cal-weekday">화</div><div class="cal-weekday">수</div><div class="cal-weekday">목</div><div class="cal-weekday">금</div><div class="cal-weekday">토</div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell"><div class="cal-daynum">1</div></div>
+          <div class="cal-cell"><div class="cal-daynum">2</div></div>
+          <div class="cal-cell"><div class="cal-daynum">3</div></div>
+          <div class="cal-cell"><div class="cal-daynum">4</div><div class="cal-chip">AMD</div></div>
+          <div class="cal-cell"><div class="cal-daynum">5</div></div>
+          <div class="cal-cell"><div class="cal-daynum">6</div></div>
+          <div class="cal-cell"><div class="cal-daynum">7</div></div>
+          <div class="cal-cell"><div class="cal-daynum">8</div></div>
+          <div class="cal-cell"><div class="cal-daynum">9</div></div>
+          <div class="cal-cell"><div class="cal-daynum">10</div></div>
+          <div class="cal-cell"><div class="cal-daynum">11</div></div>
+          <div class="cal-cell"><div class="cal-daynum">12</div></div>
+          <div class="cal-cell"><div class="cal-daynum">13</div></div>
+          <div class="cal-cell"><div class="cal-daynum">14</div></div>
+          <div class="cal-cell"><div class="cal-daynum">15</div></div>
+          <div class="cal-cell"><div class="cal-daynum">16</div></div>
+          <div class="cal-cell"><div class="cal-daynum">17</div></div>
+          <div class="cal-cell"><div class="cal-daynum">18</div></div>
+          <div class="cal-cell"><div class="cal-daynum">19</div></div>
+          <div class="cal-cell"><div class="cal-daynum">20</div></div>
+          <div class="cal-cell"><div class="cal-daynum">21</div></div>
+          <div class="cal-cell"><div class="cal-daynum">22</div></div>
+          <div class="cal-cell"><div class="cal-daynum">23</div></div>
+          <div class="cal-cell"><div class="cal-daynum">24</div></div>
+          <div class="cal-cell"><div class="cal-daynum">25</div></div>
+          <div class="cal-cell"><div class="cal-daynum">26</div><div class="cal-chip">NVDA</div></div>
+          <div class="cal-cell"><div class="cal-daynum">27</div></div>
+          <div class="cal-cell"><div class="cal-daynum">28</div></div>
+          <div class="cal-cell"><div class="cal-daynum">29</div></div>
+          <div class="cal-cell"><div class="cal-daynum">30</div></div>
+          <div class="cal-cell"><div class="cal-daynum">31</div></div>
+        </div>
+      </div>
+      <div class="card-note">달력의 종목명을 클릭할 순 없지만 색이 있는 칩이 실적 발표 예정일입니다. 자세한 시간대(장전/장후)는 아래 목록을 참고하세요.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">주요 종목 실적 발표일 (목록)</div>
+      <div class="earn-row">
+        <div><div class="earn-name">GOOGL 알파벳</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-22</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">TSLA 테슬라</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-22</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">INTC 인텔</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-23</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">MSFT 마이크로소프트</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">META 메타</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AAPL 애플</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-30</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AMZN 아마존</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-30</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AMD</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-08-04</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">NVDA 엔비디아</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-08-26</div>
+      </div>
+      <div class="card-note">TradingView에는 개별 종목 실적발표일 위젯이 없어서(경제캘린더 위젯은 FOMC·CPI 등 거시지표만 다룸) 이 표는 제가 직접 조사해 수기로 넣은 정보입니다 — 자동 갱신되지 않으니 날짜가 지나면 다시 알려주시면 갱신해드릴게요.</div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    시세 제공: TradingView (무료 위젯, 15~20분 지연 가능) · 실적 캘린더는 MarketBeat 등에서 수기 조사<br>
+    본 페이지는 정보 제공 목적이며 투자 판단의 근거로 사용할 수 없습니다. 매매 결정 전 반드시 원 출처를 확인하세요.
+  </footer>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
