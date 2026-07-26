@@ -47,6 +47,40 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 900px; margin: 0 auto; padding: 0 0 60px; }
+  @media (min-width: 900px) {
+    .wrap { max-width: 1400px; }
+  }
+  .side-by-side { display: flex; gap: 16px; align-items: flex-start; }
+  .side-by-side > .card { flex: 1 1 0; min-width: 0; }
+  @media (max-width: 899px) {
+    .side-by-side { display: block; }
+  }
+  .widget-fullscreen-wrap { position: relative; }
+  .fullscreen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .widget-fullscreen-wrap:fullscreen {
+    background: var(--page-plane);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .widget-fullscreen-wrap:fullscreen .tradingview-widget-container {
+    height: 92vh !important;
+    width: 100%;
+  }
+  .widget-fullscreen-wrap:fullscreen .fullscreen-btn { top: 24px; right: 24px; }
   .inner { padding: 20px 20px 0; }
   header.top { margin-bottom: 8px; }
   header.top h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.02em; }
@@ -99,13 +133,66 @@
   .memo-row { display: flex; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--grid); font-size: 12px; }
   .memo-date { flex: 0 0 auto; font-weight: 700; color: var(--accent); white-space: nowrap; }
   .memo-text { color: var(--text-secondary); line-height: 1.5; }
-  .supp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .supp-table th, .supp-table td { text-align: right; padding: 8px 12px; border-top: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .supp-card { padding: 0; }
+  .supp-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px 8px;
+  }
+  .supp-summary::-webkit-details-marker { display: none; }
+  .supp-summary::after {
+    content: "▸";
+    color: var(--text-muted);
+    font-size: 11px;
+    flex: 0 0 auto;
+    transition: transform 0.15s ease;
+  }
+  details[open] > .supp-summary::after { transform: rotate(90deg); }
+  .supp-hint { display: none; }
+  .supp-summary .supp-hint {
+    display: inline;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: auto;
+    margin-right: 4px;
+  }
+  .supp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .supp-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  .supp-table th, .supp-table td { text-align: right; padding: 0 10px; height: 36px; box-sizing: border-box; vertical-align: middle; border-top: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .supp-table th:first-child, .supp-table td:first-child { text-align: left; font-weight: 700; }
-  .supp-table th { font-size: 11px; color: var(--text-muted); font-weight: 600; border-top: none; }
+  .supp-table th:last-child, .supp-table td:last-child { }
+  .supp-table th { font-size: 11px; color: var(--text-muted); font-weight: 600; border-top: none; height: 52px; }
+  .supp-table th:nth-child(1) { width: 27%; }
+  .supp-table th:nth-child(2) { width: 11%; }
+  .supp-table th:nth-child(3) { width: 11%; }
+  .supp-table th:nth-child(4) { width: 11%; }
+  .supp-table th:nth-child(5) { width: 16%; }
+  .supp-table th:nth-child(6) { width: 9%; }
+  .supp-table th:nth-child(7) { width: 15%; }
+  .supp-logo { width: 16px; height: 16px; border-radius: 50%; vertical-align: middle; margin-right: 6px; object-fit: cover; background: #fff; border: 1px solid var(--border); }
+  .supp-ticker { font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 4px; }
   .supp-table td.up { color: var(--up); }
   .supp-table td.down { color: var(--down); }
   .needchk { color: var(--text-muted); font-weight: 500; }
+  @media (max-width: 480px) {
+    .inner { padding: 14px 12px 0; }
+    header.top h1 { font-size: 20px; }
+    header.top .sub { font-size: 12px; }
+    nav.tabs button { padding: 9px 10px; font-size: 13px; }
+    .card-title { padding: 12px 12px 6px; font-size: 12.5px; }
+    .card-note { padding: 0 12px 12px; font-size: 11.5px; }
+    .sector-desc { padding: 0 12px 12px; }
+    .supp-summary { padding: 12px 12px 6px; }
+    .supp-table th, .supp-table td { padding: 7px 8px; font-size: 11px; }
+    .cal-cell { min-height: 44px; padding: 3px 3px; }
+    .cal-daynum { font-size: 9px; }
+    .cal-chip { font-size: 9px; padding: 1px 3px; }
+  }
   .sector-desc b { color: var(--text-secondary); }
   footer.foot {
     margin: 24px 20px 0;
@@ -142,7 +229,7 @@
   <div class="inner">
   <header class="top">
     <h1>미국증시 실시간 대시보드</h1>
-    <div class="sub">TradingView 실시간 시세 위젯 기반 · 열 때마다 자동으로 최신 데이터가 표시됩니다(제가 따로 갱신 안 해도 됩니다) · 무료 위젯 특성상 <b>약 15~20분 지연 시세</b>일 수 있음</div>
+    <div class="sub">TradingView 실시간 시세 위젯 기반 · 열 때마다 자동으로 최신 데이터가 표시됩니다 · 무료 위젯 특성상 <b>약 15~20분 지연 시세</b>일 수 있음 · 보조지표 기준: <b><!--SUPPDATE-->2026-07-26 (수동)<!--/SUPPDATE--></b></div>
   </header>
 
   <!-- Ticker Tape: always-visible scrolling banner -->
@@ -173,7 +260,6 @@
 
   <nav class="tabs">
     <button class="tab-btn active" data-tab="overview">개요</button>
-    <button class="tab-btn" data-tab="m7">M7</button>
     <button class="tab-btn" data-tab="us30">미국TOP30</button>
     <button class="tab-btn" data-tab="kr10">한국TOP10</button>
     <button class="tab-btn" data-tab="etf">ETF</button>
@@ -228,85 +314,39 @@
 
     <div class="card">
       <div class="card-title">S&amp;P500 히트맵 (섹터별)</div>
-      <div class="tradingview-widget-container" style="height:400px;">
-        <div class="tradingview-widget-container__widget"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
-        {
-          "exchanges": [],
-          "dataSource": "SPX500",
-          "grouping": "sector",
-          "blockSize": "market_cap_basic",
-          "blockColor": "change",
-          "locale": "kr",
-          "symbolUrl": "",
-          "colorTheme": "light",
-          "hasTopBar": true,
-          "isDataSetEnabled": true,
-          "isZoomEnabled": true,
-          "hasSymbolTooltip": true,
-          "isMonoSize": false,
-          "width": "100%",
-          "height": "400"
-        }
-        </script>
+      <div class="widget-fullscreen-wrap">
+        <button class="fullscreen-btn" onclick="toggleFullscreen(this)" aria-label="전체화면으로 보기">⛶ 전체화면</button>
+        <div class="tradingview-widget-container" style="height:400px;">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
+          {
+            "exchanges": [],
+            "dataSource": "SPX500",
+            "grouping": "sector",
+            "blockSize": "market_cap_basic",
+            "blockColor": "change",
+            "locale": "kr",
+            "symbolUrl": "",
+            "colorTheme": "light",
+            "hasTopBar": true,
+            "isDataSetEnabled": true,
+            "isZoomEnabled": true,
+            "hasSymbolTooltip": true,
+            "isMonoSize": false,
+            "width": "100%",
+            "height": "400"
+          }
+          </script>
+        </div>
       </div>
-      <div class="card-note">S&amp;P500 전체 종목을 시총 크기·등락률 색으로 보여주는 지도입니다. 빨강=상승, 파랑=하락 (한국식 색상 배색).</div>
+      <div class="card-note">S&amp;P500 전체 종목을 시총 크기·등락률 색으로 보여주는 지도입니다. 빨강=상승, 파랑=하락 (한국식 색상 배색). 우측 상단 "전체화면" 버튼을 누르면 화면 전체로 크게 볼 수 있어요.</div>
     </div>
+
   </section>
 
-  <!-- ================= M7 ================= -->
-  <section class="panel" id="m7">
-    <div class="card">
-      <div class="card-title">매그니피센트7</div>
-      <div class="tradingview-widget-container" style="height:420px;">
-        <div class="tradingview-widget-container__widget"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
-        {
-          "title": "M7",
-          "width": "100%",
-          "height": "420",
-          "locale": "kr",
-          "showSymbolLogo": true,
-          "symbolsGroups": [
-            {
-              "name": "M7",
-              "symbols": [
-                {"name": "NASDAQ:NVDA", "displayName": "엔비디아"},
-                {"name": "NASDAQ:AAPL", "displayName": "애플"},
-                {"name": "NASDAQ:MSFT", "displayName": "마이크로소프트"},
-                {"name": "NASDAQ:GOOGL", "displayName": "알파벳"},
-                {"name": "NASDAQ:AMZN", "displayName": "아마존"},
-                {"name": "NASDAQ:META", "displayName": "메타"},
-                {"name": "NASDAQ:TSLA", "displayName": "테슬라"}
-              ]
-            }
-          ],
-          "colorTheme": "light"
-        }
-        </script>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
-      <table class="supp-table">
-        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
-        <tbody>
-          <tr><td>엔비디아</td><td class="down">-12.6%</td><td class="up">+1.99%</td><td class="up">+10.91%</td><td class="down">2일 연속 하락</td></tr>
-          <tr><td>애플</td><td class="down">-0.6%</td><td class="down">-0.22%</td><td class="up">+22.50%</td><td class="up">1일 상승</td></tr>
-          <tr><td>마이크로소프트</td><td class="down">-31.3%<span class="needchk">*</span></td><td class="down">-3.08%</td><td class="down">-21.07%</td><td class="up">1일 상승</td></tr>
-          <tr><td>알파벳</td><td class="down">-21.7%</td><td class="down">-7.79%</td><td class="up">+2.15%</td><td class="up">1일 상승</td></tr>
-          <tr><td>아마존</td><td class="down">-16.7%</td><td class="down">-6.12%</td><td class="up">+0.56%</td><td class="down">4일 연속 하락</td></tr>
-          <tr><td>메타</td><td class="down">-25.3%</td><td class="down">-7.87%</td><td class="down">-9.83%</td><td class="down">7일+ 연속 하락<span class="needchk">**</span></td></tr>
-          <tr><td>테슬라</td><td class="down">-37.2%</td><td class="down">-17.81%</td><td class="down">-30.39%</td><td class="down">3일 연속 하락</td></tr>
-        </tbody>
-      </table>
-      <div class="card-note">2026-07-22 조사 기준(단일 소스 Barchart/stockanalysis.com, 빠른 보조 조사라 전체 정밀검증 대비 신뢰도 낮음). * MSFT 52주 고점 수치가 최근 주가 흐름과 비교해 이례적으로 커 보여 재확인 권장. ** 메타는 조회 가능했던 최근 8거래일이 전부 하락이라 실제 연속하락일이 더 길 수 있음(데이터 창 한계). 이 표는 위젯처럼 실시간이 아니라 제가 가끔 수동으로 갱신하는 값입니다 — 최신화 원하시면 말씀해주세요.</div>
-    </div>
-  </section>
-
-  <!-- ================= 미국TOP30 ================= -->
+  <!-- ================= 미국TOP30 (M7 포함) ================= -->
   <section class="panel" id="us30">
+    <div class="side-by-side">
     <div class="card">
       <div class="card-title">미국 시총 TOP30</div>
       <div class="tradingview-widget-container" style="height:1200px;">
@@ -362,42 +402,55 @@
       <div class="card-note">시총순 정렬은 위젯 자체 실시간 값 기준이 아니라 목록 순서 그대로입니다. 정확한 시총순 정렬이 필요하면 각 열의 "시가총액" 컬럼을 눌러 정렬하세요.</div>
     </div>
 
-    <div class="card">
-      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+    <details class="card supp-card" open>
+      <summary class="card-title supp-summary">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속 · RSI · 기술등급)</summary>
+      <div class="supp-table-wrap">
       <table class="supp-table">
-        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th><th>기술등급</th></tr></thead>
         <tbody>
-          <tr><td>TSMC</td><td class="down">-15.8%</td><td class="up">+1.27%</td><td class="up">+32.75%</td><td class="down">3일 하락</td></tr>
-          <tr><td>브로드컴</td><td class="down">-22.8%</td><td class="up">+2.99%</td><td class="up">+10.35%</td><td class="down">2일 하락</td></tr>
-          <tr><td>버크셔해서웨이</td><td class="down">-4.2%</td><td class="up">+0.82%</td><td class="down">-1.54%</td><td class="up">2일 상승</td></tr>
-          <tr><td>일라이릴리</td><td class="down">-4.3%</td><td class="up">+1.43%</td><td class="up">+11.29%</td><td class="up">2일 상승</td></tr>
-          <tr><td>마이크론</td><td class="down">-26.6%</td><td class="up">+8.48%</td><td class="up">+222.68%<span class="needchk">*</span></td><td class="down">1일 하락</td></tr>
-          <tr><td>JP모건</td><td class="down">-0.0%</td><td class="up">+3.55%</td><td class="up">+9.62%</td><td class="up">4일 상승</td></tr>
-          <tr><td>월마트</td><td class="down">-19.0%</td><td class="down">-4.18%</td><td class="down">-1.74%</td><td class="up">1일 상승</td></tr>
-          <tr><td>AMD</td><td class="down">-10.7%</td><td class="up">+5.28%</td><td class="up">+143.72%</td><td class="down">2일 하락</td></tr>
-          <tr><td>비자</td><td class="down">-2.6%</td><td class="down">-0.79%</td><td class="up">+1.43%</td><td class="up">1일 상승</td></tr>
-          <tr><td>ASML</td><td class="down">-12.1%</td><td class="up">+0.54%</td><td class="up">+64.24%</td><td class="down">1일 하락</td></tr>
-          <tr><td>엑슨모빌</td><td class="down">-11.0%</td><td class="up">+6.50%</td><td class="up">+30.41%</td><td class="up">7일 상승</td></tr>
-          <tr><td>존슨앤존슨</td><td class="down">-2.2%</td><td class="up">+4.09%</td><td class="up">+27.28%</td><td class="up">4일 상승</td></tr>
-          <tr><td>인텔</td><td class="down">-35.1%</td><td class="down">-2.86%</td><td class="up">+150.19%</td><td class="down">3일 하락</td></tr>
-          <tr><td>마스터카드</td><td class="down">-10.3%</td><td class="down">-0.72%</td><td class="down">-5.47%</td><td class="up">1일 상승</td></tr>
-          <tr><td>애브비</td><td class="down">-0.9%</td><td class="up">+1.91%</td><td class="up">+13.51%</td><td class="up">2일 상승</td></tr>
-          <tr><td>시스코</td><td class="down">-12.4%</td><td class="up">+1.99%</td><td class="up">+48.21%</td><td class="up">4일 상승</td></tr>
-          <tr><td>어플라이드머티리얼즈</td><td class="down">-27.5%</td><td class="up">+1.24%</td><td class="up">+108.67%</td><td class="down">1일 하락</td></tr>
-          <tr><td>코스트코</td><td class="down">-14.7%</td><td class="down">-0.62%</td><td class="up">+8.43%</td><td class="up">1일 상승</td></tr>
-          <tr><td>캐터필러</td><td class="down">-17.2%</td><td class="up">+0.96%</td><td class="up">+55.14%</td><td class="down">1일 하락</td></tr>
-          <tr><td>램리서치</td><td class="down">-30.4%</td><td class="down">-2.58%</td><td class="up">+78.30%</td><td class="down">1일 하락</td></tr>
-          <tr><td>쉐브론</td><td class="down">-9.3%</td><td class="up">+3.95%</td><td class="up">+27.81%</td><td class="up">7일 상승</td></tr>
-          <tr><td>오라클</td><td class="down">-66.7%<span class="needchk">*</span></td><td class="down">-9.03%</td><td class="down">-41.00%<span class="needchk">*</span></td><td class="down">3일 하락</td></tr>
-          <tr><td>ARM</td><td class="down">-42.6%</td><td class="down">-7.18%</td><td class="up">+150.70%</td><td class="down">3일 하락</td></tr>
+          <!--SUPP:us30:START-->
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/nvidia.com" onerror="this.style.display='none'">엔비디아<span class="supp-ticker">NVDA</span></td><td class="down">-12.6%</td><td class="up">+1.99%</td><td class="up">+10.91%</td><td class="down">2일 연속 하락</td><td>58.9</td><td class="needchk">Neutral</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/apple.com" onerror="this.style.display='none'">애플<span class="supp-ticker">AAPL</span></td><td class="down">-0.6%</td><td class="down">-0.22%</td><td class="up">+22.50%</td><td class="up">1일 상승</td><td>48.3</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/microsoft.com" onerror="this.style.display='none'">마이크로소프트<span class="supp-ticker">MSFT</span></td><td class="down">-31.3%<span class="needchk">*</span></td><td class="down">-3.08%</td><td class="down">-21.07%</td><td class="up">1일 상승</td><td>39.6</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/abc.xyz" onerror="this.style.display='none'">알파벳<span class="supp-ticker">GOOGL</span></td><td class="down">-21.7%</td><td class="down">-7.79%</td><td class="up">+2.15%</td><td class="up">1일 상승</td><td>59.2</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/amazon.com" onerror="this.style.display='none'">아마존<span class="supp-ticker">AMZN</span></td><td class="down">-16.7%</td><td class="down">-6.12%</td><td class="up">+0.56%</td><td class="down">4일 연속 하락</td><td>39.1</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/meta.com" onerror="this.style.display='none'">메타<span class="supp-ticker">META</span></td><td class="down">-25.3%</td><td class="down">-7.87%</td><td class="down">-9.83%</td><td class="down">7일+ 연속 하락<span class="needchk">**</span></td><td>58.6</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/tesla.com" onerror="this.style.display='none'">테슬라<span class="supp-ticker">TSLA</span></td><td class="down">-37.2%</td><td class="down">-17.81%</td><td class="down">-30.39%</td><td class="down">3일 연속 하락</td><td>44.5</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/tsmc.com" onerror="this.style.display='none'">TSMC<span class="supp-ticker">TSM</span></td><td class="down">-15.8%</td><td class="up">+1.27%</td><td class="up">+32.75%</td><td class="down">3일 하락</td><td>50.2</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/broadcom.com" onerror="this.style.display='none'">브로드컴<span class="supp-ticker">AVGO</span></td><td class="down">-22.8%</td><td class="up">+2.99%</td><td class="up">+10.35%</td><td class="down">2일 하락</td><td>51.1</td><td class="up">Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/berkshirehathaway.com" onerror="this.style.display='none'">버크셔해서웨이<span class="supp-ticker">BRK.B</span></td><td class="down">-4.2%</td><td class="up">+0.82%</td><td class="down">-1.54%</td><td class="up">2일 상승</td><td>41.6</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lilly.com" onerror="this.style.display='none'">일라이릴리<span class="supp-ticker">LLY</span></td><td class="down">-4.3%</td><td class="up">+1.43%</td><td class="up">+11.29%</td><td class="up">2일 상승</td><td>51.2</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/micron.com" onerror="this.style.display='none'">마이크론<span class="supp-ticker">MU</span></td><td class="down">-26.6%</td><td class="up">+8.48%</td><td class="up">+222.68%<span class="needchk">*</span></td><td class="down">1일 하락</td><td>44.6</td><td class="down">Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/jpmorganchase.com" onerror="this.style.display='none'">JP모건<span class="supp-ticker">JPM</span></td><td class="down">-0.0%</td><td class="up">+3.55%</td><td class="up">+9.62%</td><td class="up">4일 상승</td><td>56.1</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/walmart.com" onerror="this.style.display='none'">월마트<span class="supp-ticker">WMT</span></td><td class="down">-19.0%</td><td class="down">-4.18%</td><td class="down">-1.74%</td><td class="up">1일 상승</td><td>49.8</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/amd.com" onerror="this.style.display='none'">AMD<span class="supp-ticker">AMD</span></td><td class="down">-10.7%</td><td class="up">+5.28%</td><td class="up">+143.72%</td><td class="down">2일 하락</td><td>37.7</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/visa.com" onerror="this.style.display='none'">비자<span class="supp-ticker">V</span></td><td class="down">-2.6%</td><td class="down">-0.79%</td><td class="up">+1.43%</td><td class="up">1일 상승</td><td>70.4</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/asml.com" onerror="this.style.display='none'">ASML<span class="supp-ticker">ASML</span></td><td class="down">-12.1%</td><td class="up">+0.54%</td><td class="up">+64.24%</td><td class="down">1일 하락</td><td>53.0</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/exxonmobil.com" onerror="this.style.display='none'">엑슨모빌<span class="supp-ticker">XOM</span></td><td class="down">-11.0%</td><td class="up">+6.50%</td><td class="up">+30.41%</td><td class="up">7일 상승</td><td>46.9</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/jnj.com" onerror="this.style.display='none'">존슨앤존슨<span class="supp-ticker">JNJ</span></td><td class="down">-2.2%</td><td class="up">+4.09%</td><td class="up">+27.28%</td><td class="up">4일 상승</td><td>74.5</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/intel.com" onerror="this.style.display='none'">인텔<span class="supp-ticker">INTC</span></td><td class="down">-35.1%</td><td class="down">-2.86%</td><td class="up">+150.19%</td><td class="down">3일 하락</td><td>44.4</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/mastercard.com" onerror="this.style.display='none'">마스터카드<span class="supp-ticker">MA</span></td><td class="down">-10.3%</td><td class="down">-0.72%</td><td class="down">-5.47%</td><td class="up">1일 상승</td><td>61.9</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/abbvie.com" onerror="this.style.display='none'">애브비<span class="supp-ticker">ABBV</span></td><td class="down">-0.9%</td><td class="up">+1.91%</td><td class="up">+13.51%</td><td class="up">2일 상승</td><td>75.7</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/cisco.com" onerror="this.style.display='none'">시스코<span class="supp-ticker">CSCO</span></td><td class="down">-12.4%</td><td class="up">+1.99%</td><td class="up">+48.21%</td><td class="up">4일 상승</td><td>31.8</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/appliedmaterials.com" onerror="this.style.display='none'">어플라이드머티리얼즈<span class="supp-ticker">AMAT</span></td><td class="down">-27.5%</td><td class="up">+1.24%</td><td class="up">+108.67%</td><td class="down">1일 하락</td><td>57.2</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/costco.com" onerror="this.style.display='none'">코스트코<span class="supp-ticker">COST</span></td><td class="down">-14.7%</td><td class="down">-0.62%</td><td class="up">+8.43%</td><td class="up">1일 상승</td><td>37.0</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/caterpillar.com" onerror="this.style.display='none'">캐터필러<span class="supp-ticker">CAT</span></td><td class="down">-17.2%</td><td class="up">+0.96%</td><td class="up">+55.14%</td><td class="down">1일 하락</td><td>41.2</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lamresearch.com" onerror="this.style.display='none'">램리서치<span class="supp-ticker">LRCX</span></td><td class="down">-30.4%</td><td class="down">-2.58%</td><td class="up">+78.30%</td><td class="down">1일 하락</td><td>52.3</td><td class="needchk">Neutral</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/chevron.com" onerror="this.style.display='none'">쉐브론<span class="supp-ticker">CVX</span></td><td class="down">-9.3%</td><td class="up">+3.95%</td><td class="up">+27.81%</td><td class="up">7일 상승</td><td>28.0</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/oracle.com" onerror="this.style.display='none'">오라클<span class="supp-ticker">ORCL</span></td><td class="down">-66.7%<span class="needchk">*</span></td><td class="down">-9.03%</td><td class="down">-41.00%<span class="needchk">*</span></td><td class="down">3일 하락</td><td>51.2</td><td class="needchk">Neutral</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/arm.com" onerror="this.style.display='none'">ARM<span class="supp-ticker">ARM</span></td><td class="down">-42.6%</td><td class="down">-7.18%</td><td class="up">+150.70%</td><td class="down">3일 하락</td><td>41.8</td><td class="down">Strong Sell</td></tr>
+          <!--SUPP:us30:END-->
         </tbody>
       </table>
-      <div class="card-note">조사 시점 기준(단일/이중 소스, 빠른 보조 조사라 전체 정밀검증 대비 신뢰도 낮음). * 마이크론 YTD(+223%)와 오라클(고점대비 -67%, YTD -41%)은 수치가 이례적으로 커서 재확인을 권장합니다. 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+      </div>
+      <div class="card-note">페이지 상단의 "보조지표 기준" 날짜 시점 값입니다. 자동갱신 설정 후에는 매일 아침(한국시간 6:30) 야후 파이낸스 일봉 데이터로 재계산됩니다. 기술등급은 애널리스트 의견이 아니라 이동평균(20·50·200일) 기반 자동 계산 신호이며, 데이터를 못 받아온 종목은 "확인 필요"로 표시됩니다. 참고용이며 투자 판단 근거로 쓸 수 없습니다.</div>
+    </details>
     </div>
   </section>
 
   <!-- ================= 한국TOP10 ================= -->
   <section class="panel" id="kr10">
+    <div class="side-by-side">
     <div class="card">
       <div class="card-title">한국 시총 TOP10</div>
       <div class="tradingview-widget-container" style="height:420px;">
@@ -433,29 +486,35 @@
       <div class="card-note">KRX 종목은 TradingView 무료 위젯 데이터 제공사 특성상 일부 지연되거나 표시가 안 될 수 있습니다 — 안 뜨면 새로고침해보세요.</div>
     </div>
 
-    <div class="card">
-      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+    <details class="card supp-card" open>
+      <summary class="card-title supp-summary">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속 · RSI · 기술등급)</summary>
+      <div class="supp-table-wrap">
       <table class="supp-table">
-        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th><th>기술등급</th></tr></thead>
         <tbody>
-          <tr><td>삼성전자</td><td class="down">-33.4%</td><td class="down">-2.2%</td><td class="down">-17.4%</td><td class="down">1일 하락</td></tr>
-          <tr><td>SK하이닉스</td><td class="down">-41.1%</td><td class="down">-4.5%</td><td class="down">-12.8%</td><td class="down">1일 하락</td></tr>
-          <tr><td>LG에너지솔루션</td><td class="down">-37.5%</td><td class="down">-1.3%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
-          <tr><td>삼성바이오로직스</td><td class="down">-23.6%</td><td class="up">+8.7%<span class="needchk">*</span></td><td class="needchk">확인 필요</td><td class="up">2일 상승</td></tr>
-          <tr><td>현대차</td><td class="down">-48.8%</td><td class="down">-5.6%</td><td class="down">-35.5%</td><td class="down">1일 하락</td></tr>
-          <tr><td>KB금융</td><td class="down">-11.8%</td><td class="down">-5.3%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
-          <tr><td>삼성물산</td><td class="down">-39.5%</td><td class="down">-1.2%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
-          <tr><td>삼성생명</td><td class="down">-38.4%</td><td class="down">-3.9%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td></tr>
-          <tr><td>삼성전기</td><td class="down">-45.1%</td><td class="up">+3.8%</td><td class="down">-23.9%</td><td class="down">1일 하락</td></tr>
-          <tr><td>SK스퀘어</td><td class="down">-49.3%</td><td class="down">-8.5%</td><td class="needchk">확인 필요</td><td class="down">3일 하락</td></tr>
+          <!--SUPP:kr10:START-->
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsung.com" onerror="this.style.display='none'">삼성전자<span class="supp-ticker">005930</span></td><td class="down">-33.4%</td><td class="down">-2.2%</td><td class="down">-17.4%</td><td class="down">1일 하락</td><td>40.4</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/skhynix.com" onerror="this.style.display='none'">SK하이닉스<span class="supp-ticker">000660</span></td><td class="down">-41.1%</td><td class="down">-4.5%</td><td class="down">-12.8%</td><td class="down">1일 하락</td><td>49.4</td><td class="up">Strong Buy<span class="needchk">*</span></td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lgensol.com" onerror="this.style.display='none'">LG에너지솔루션<span class="supp-ticker">373220</span></td><td class="down">-37.5%</td><td class="down">-1.3%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td><td>44.1</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungbiologics.com" onerror="this.style.display='none'">삼성바이오로직스<span class="supp-ticker">207940</span></td><td class="down">-23.6%</td><td class="up">+8.7%<span class="needchk">*</span></td><td class="needchk">확인 필요</td><td class="up">2일 상승</td><td>23.8</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hyundai.com" onerror="this.style.display='none'">현대차<span class="supp-ticker">005380</span></td><td class="down">-48.8%</td><td class="down">-5.6%</td><td class="down">-35.5%</td><td class="down">1일 하락</td><td>38.0</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kbfg.com" onerror="this.style.display='none'">KB금융<span class="supp-ticker">105560</span></td><td class="down">-11.8%</td><td class="down">-5.3%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td><td>38.5</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungcnt.com" onerror="this.style.display='none'">삼성물산<span class="supp-ticker">028260</span></td><td class="down">-39.5%</td><td class="down">-1.2%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td><td>43.4</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsunglife.com" onerror="this.style.display='none'">삼성생명<span class="supp-ticker">032830</span></td><td class="down">-38.4%</td><td class="down">-3.9%</td><td class="needchk">확인 필요</td><td class="down">1일 하락</td><td>48.2</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungsem.com" onerror="this.style.display='none'">삼성전기<span class="supp-ticker">009150</span></td><td class="down">-45.1%</td><td class="up">+3.8%</td><td class="down">-23.9%</td><td class="down">1일 하락</td><td>43.5</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/sksquare.com" onerror="this.style.display='none'">SK스퀘어<span class="supp-ticker">402340</span></td><td class="down">-49.3%</td><td class="down">-8.5%</td><td class="needchk">확인 필요</td><td class="down">3일 하락</td><td>38.8</td><td class="down">Strong Sell</td></tr>
+          <!--SUPP:kr10:END-->
         </tbody>
       </table>
-      <div class="card-note">조사 시점 기준 코스피 급락일(-5.72%) 데이터라 하락 종목이 많습니다. * 삼성바이오로직스만 시장과 반대로 +8.7%/2일 연속 상승 — 두 소스로 교차확인했지만 이례적이라 참고 바랍니다. 26년 YTD는 신뢰 가능한 연초 종가를 못 찾은 종목이 많아 "확인 필요"로 남겼습니다(추정 금지). 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+      </div>
+      <div class="card-note">페이지 상단의 "보조지표 기준" 날짜 시점 값입니다. 자동갱신 설정 후에는 매일 아침 야후 파이낸스 일봉 데이터로 재계산됩니다. 기술등급은 이동평균(20·50·200일) 기반 자동 계산 신호(애널리스트 의견 아님)이며, 데이터를 못 받아온 종목은 "확인 필요"로 표시됩니다. 참고용이며 투자 판단 근거로 쓸 수 없습니다.</div>
+    </details>
     </div>
   </section>
 
   <!-- ================= ETF ================= -->
   <section class="panel" id="etf">
+    <div class="side-by-side">
     <div class="card">
       <div class="card-title">주요 ETF (AUM 상위 10 + 섹터 ETF 9)</div>
       <div class="tradingview-widget-container" style="height:800px;">
@@ -503,6 +562,41 @@
         </script>
       </div>
     </div>
+
+    <details class="card supp-card" open>
+      <summary class="card-title supp-summary">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속 · RSI · 기술등급)</summary>
+      <div class="supp-table-wrap">
+      <table class="supp-table">
+        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th><th>기술등급</th></tr></thead>
+        <tbody>
+          <!--SUPP:etf:START-->
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VOO<span class="supp-ticker">VOO</span></td><td class="down">-2.9%</td><td class="down">-0.59%</td><td class="up">+8.29%</td><td class="up">1일 상승</td><td>54.5</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ishares.com" onerror="this.style.display='none'">IVV<span class="supp-ticker">IVV</span></td><td class="down">-2.8%</td><td class="down">-0.58%</td><td class="up">+8.38%</td><td class="up">1일 상승</td><td>52.7</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">SPY<span class="supp-ticker">SPY</span></td><td class="down">-2.8%</td><td class="down">-0.59%</td><td class="up">+8.36%</td><td class="up">1일 상승</td><td>32.3</td><td class="down">Sell<span class="needchk">*</span></td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VTI<span class="supp-ticker">VTI</span></td><td class="down">-2.6%</td><td class="down">-0.60%</td><td class="up">+8.81%</td><td class="up">1일 상승</td><td>59.2</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/invesco.com" onerror="this.style.display='none'">QQQ<span class="supp-ticker">QQQ</span></td><td class="down">-8.6%</td><td class="down">-1.60%</td><td class="up">+11.38%</td><td class="down">3일 하락</td><td>45.7</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VEA<span class="supp-ticker">VEA</span></td><td class="down">-4.8%</td><td class="up">+0.01%</td><td class="up">+11.59%</td><td class="down">2일 하락</td><td>37.3</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VUG<span class="supp-ticker">VUG</span></td><td class="down">-7.9%</td><td class="down">-2.10%</td><td class="up">+2.67%</td><td class="down">3일 하락</td><td>55.9</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ishares.com" onerror="this.style.display='none'">IEFA<span class="supp-ticker">IEFA</span></td><td class="down">-2.5%</td><td class="up">+0.09%</td><td class="up">+7.69%</td><td class="up">1일 상승</td><td>74.9</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VTV<span class="supp-ticker">VTV</span></td><td class="down">-0.5%</td><td class="up">+1.42%</td><td class="up">+15.72%</td><td class="up">4일 상승</td><td>42.8</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">BND<span class="supp-ticker">BND</span></td><td class="down">-3.9%</td><td class="down">-0.75%</td><td class="down">-2.38%</td><td class="up">1일 상승</td><td>40.9</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLK<span class="supp-ticker">XLK</span></td><td class="down">-11.5%</td><td class="up">+0.17%</td><td class="up">+22.16%</td><td class="down">3일 하락</td><td>58.5</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLF<span class="supp-ticker">XLF</span></td><td class="down">-1.1%</td><td class="up">+0.09%</td><td class="up">+2.81%</td><td class="up">1일 상승</td><td>65.2</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLV<span class="supp-ticker">XLV</span></td><td class="down">-1.8%</td><td class="up">+0.92%</td><td class="up">+5.02%</td><td class="up">2일 상승</td><td>72.7</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLY<span class="supp-ticker">XLY</span></td><td class="down">-12.5%</td><td class="down">-5.22%</td><td class="down">-8.37%</td><td class="up">1일 상승</td><td>58.0</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLP<span class="supp-ticker">XLP</span></td><td class="down">-6.7%</td><td class="down">-1.24%</td><td class="up">+8.30%</td><td class="up">1일 상승</td><td>52.6</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLE<span class="supp-ticker">XLE</span></td><td class="down">-6.1%</td><td class="up">+3.36%</td><td class="up">+33.35%</td><td class="up">7일 상승<span class="needchk">*</span></td><td>32.1</td><td class="down">Strong Sell</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLI<span class="supp-ticker">XLI</span></td><td class="down">-2.0%</td><td class="up">+1.81%</td><td class="up">+17.75%</td><td class="up">4일 상승</td><td>62.1</td><td class="up">Strong Buy</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLB<span class="supp-ticker">XLB</span></td><td class="down">-5.3%</td><td class="up">+1.44%</td><td class="up">+13.03%</td><td class="up">1일 상승</td><td>67.7</td><td class="needchk">Neutral</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLU<span class="supp-ticker">XLU</span></td><td class="down">-3.2%</td><td class="up">+2.48%</td><td class="up">+8.43%</td><td class="up">3일 상승</td><td>55.2</td><td class="up">Buy</td></tr>
+          <!--SUPP:etf:END-->
+        </tbody>
+      </table>
+      </div>
+      <div class="card-note">페이지 상단의 "보조지표 기준" 날짜 시점 값입니다. 자동갱신 설정 후에는 매일 아침 야후 파이낸스 일봉 데이터로 재계산됩니다. BND는 채권 ETF라 변동폭이 작은 게 정상입니다. 기술등급은 이동평균(20·50·200일) 기반 자동 계산 신호(애널리스트 의견 아님)입니다. 참고용이며 투자 판단 근거로 쓸 수 없습니다.</div>
+    </details>
+    </div>
+
     <div class="card">
       <div class="card-title">섹터 ETF는 각각 이럴 때 오르고 내립니다</div>
       <div class="sector-desc"><b>XLK 기술</b> — 애플·MSFT·엔비디아 등 대형 IT·반도체. 금리 하락, AI/실적 기대감엔 강세 · 금리 급등, 성장주 조정엔 약세.</div>
@@ -515,39 +609,11 @@
       <div class="sector-desc"><b>XLB 소재</b> — 화학·철강·광산. 원자재 가격 상승, 달러 약세엔 강세 · 경기 둔화, 달러 강세엔 약세.</div>
       <div class="sector-desc"><b>XLU 유틸리티</b> — 전력·가스·수도. 금리 하락기, 안전자산 선호엔 강세 · 금리 상승기엔 약세.</div>
     </div>
-
-    <div class="card">
-      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
-      <table class="supp-table">
-        <thead><tr><th>종목</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
-        <tbody>
-          <tr><td>VOO</td><td class="down">-2.9%</td><td class="down">-0.59%</td><td class="up">+8.29%</td><td class="up">1일 상승</td></tr>
-          <tr><td>IVV</td><td class="down">-2.8%</td><td class="down">-0.58%</td><td class="up">+8.38%</td><td class="up">1일 상승</td></tr>
-          <tr><td>SPY</td><td class="down">-2.8%</td><td class="down">-0.59%</td><td class="up">+8.36%</td><td class="up">1일 상승</td></tr>
-          <tr><td>VTI</td><td class="down">-2.6%</td><td class="down">-0.60%</td><td class="up">+8.81%</td><td class="up">1일 상승</td></tr>
-          <tr><td>QQQ</td><td class="down">-8.6%</td><td class="down">-1.60%</td><td class="up">+11.38%</td><td class="down">3일 하락</td></tr>
-          <tr><td>VEA</td><td class="down">-4.8%</td><td class="up">+0.01%</td><td class="up">+11.59%</td><td class="down">2일 하락</td></tr>
-          <tr><td>VUG</td><td class="down">-7.9%</td><td class="down">-2.10%</td><td class="up">+2.67%</td><td class="down">3일 하락</td></tr>
-          <tr><td>IEFA</td><td class="down">-2.5%</td><td class="up">+0.09%</td><td class="up">+7.69%</td><td class="up">1일 상승</td></tr>
-          <tr><td>VTV</td><td class="down">-0.5%</td><td class="up">+1.42%</td><td class="up">+15.72%</td><td class="up">4일 상승</td></tr>
-          <tr><td>BND</td><td class="down">-3.9%</td><td class="down">-0.75%</td><td class="down">-2.38%</td><td class="up">1일 상승</td></tr>
-          <tr><td>XLK</td><td class="down">-11.5%</td><td class="up">+0.17%</td><td class="up">+22.16%</td><td class="down">3일 하락</td></tr>
-          <tr><td>XLF</td><td class="down">-1.1%</td><td class="up">+0.09%</td><td class="up">+2.81%</td><td class="up">1일 상승</td></tr>
-          <tr><td>XLV</td><td class="down">-1.8%</td><td class="up">+0.92%</td><td class="up">+5.02%</td><td class="up">2일 상승</td></tr>
-          <tr><td>XLY</td><td class="down">-12.5%</td><td class="down">-5.22%</td><td class="down">-8.37%</td><td class="up">1일 상승</td></tr>
-          <tr><td>XLP</td><td class="down">-6.7%</td><td class="down">-1.24%</td><td class="up">+8.30%</td><td class="up">1일 상승</td></tr>
-          <tr><td>XLE</td><td class="down">-6.1%</td><td class="up">+3.36%</td><td class="up">+33.35%</td><td class="up">7일 상승<span class="needchk">*</span></td></tr>
-          <tr><td>XLI</td><td class="down">-2.0%</td><td class="up">+1.81%</td><td class="up">+17.75%</td><td class="up">4일 상승</td></tr>
-          <tr><td>XLB</td><td class="down">-5.3%</td><td class="up">+1.44%</td><td class="up">+13.03%</td><td class="up">1일 상승</td></tr>
-          <tr><td>XLU</td><td class="down">-3.2%</td><td class="up">+2.48%</td><td class="up">+8.43%</td><td class="up">3일 상승</td></tr>
-        </tbody>
-      </table>
-      <div class="card-note">조사 시점 기준. * XLE의 7일 연속 상승은 이례적으로 길어 재확인 권장. BND는 채권 ETF라 변동폭이 작고 26년 YTD가 마이너스인 게 정상 범위입니다. 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
-    </div>
   </section>
 
   <!-- ================= 매크로·심리 ================= -->
   <section class="panel" id="macro">
+    <div class="side-by-side">
     <div class="card">
       <div class="card-title">매크로 지표</div>
       <div class="tradingview-widget-container" style="height:400px;">
@@ -581,22 +647,27 @@
       <div class="card-note">CNN Fear &amp; Greed Index는 TradingView 위젯으로 제공되지 않아 제외했습니다 — <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener">cnn.com/markets/fear-and-greed</a>에서 직접 확인하세요.</div>
     </div>
 
-    <div class="card">
-      <div class="card-title">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속상승/하락일)</div>
+    <details class="card supp-card" open>
+      <summary class="card-title supp-summary">보조 지표 (고점대비 · 주간 · 26년 YTD · 연속 · RSI · 기술등급)</summary>
+      <div class="supp-table-wrap">
       <table class="supp-table">
-        <thead><tr><th>자산</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th></tr></thead>
+        <thead><tr><th>자산</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th><th>기술등급</th></tr></thead>
         <tbody>
-          <tr><td>VIX</td><td class="down">-46.6%</td><td class="up">+0.4%</td><td class="up">+0.3%</td><td class="up">2일 상승</td></tr>
-          <tr><td>美10년물</td><td class="down">-0.4%</td><td class="up">+3.1%</td><td class="up">+12.7%</td><td class="down">1일 하락</td></tr>
-          <tr><td>美2년물</td><td class="down">-0.5%</td><td class="up">+3.8%</td><td class="up">+20.6%<span class="needchk">*</span></td><td class="down">1일 하락</td></tr>
-          <tr><td>달러인덱스</td><td class="down">-0.3%</td><td class="up">+0.9%<span class="needchk">*</span></td><td class="up">+3.3%</td><td class="needchk">확인 필요</td></tr>
-          <tr><td>WTI 원유</td><td class="down">-15.9%</td><td class="up">+9.5%<span class="needchk">*</span></td><td class="up">+25.2%<span class="needchk">*</span></td><td class="down">1일 하락</td></tr>
-          <tr><td>금</td><td class="down">-27.7%</td><td class="up">+2.0%</td><td class="down">-6.1%</td><td class="needchk">확인 필요</td></tr>
-          <tr><td>비트코인</td><td class="down">-48.5%</td><td class="up">+2.0%</td><td class="down">-25.7%</td><td class="down">2일 하락</td></tr>
-          <tr><td>원달러 환율</td><td class="down">-5.4%</td><td class="down">-0.7%<span class="needchk">*</span></td><td class="up">+2.2%</td><td class="needchk">확인 필요</td></tr>
+          <!--SUPP:macro:START-->
+          <tr><td>VIX<span class="supp-ticker">VIX</span></td><td class="down">-46.6%</td><td class="up">+0.4%</td><td class="up">+0.3%</td><td class="up">2일 상승</td><td>50.7</td><td class="needchk">해당없음</td></tr>
+          <tr><td>美10년물<span class="supp-ticker">US10Y</span></td><td class="down">-0.4%</td><td class="up">+3.1%</td><td class="up">+12.7%</td><td class="down">1일 하락</td><td>58.9</td><td class="needchk">해당없음</td></tr>
+          <tr><td>美2년물<span class="supp-ticker">US02Y</span></td><td class="down">-0.5%</td><td class="up">+3.8%</td><td class="up">+20.6%<span class="needchk">*</span></td><td class="down">1일 하락</td><td>64.1</td><td class="needchk">해당없음</td></tr>
+          <tr><td>달러인덱스<span class="supp-ticker">DXY</span></td><td class="down">-0.3%</td><td class="up">+0.9%<span class="needchk">*</span></td><td class="up">+3.3%</td><td class="needchk">확인 필요</td><td>64.5</td><td class="needchk">해당없음</td></tr>
+          <tr><td>WTI 원유<span class="supp-ticker">USOIL</span></td><td class="down">-15.9%</td><td class="up">+9.5%<span class="needchk">*</span></td><td class="up">+25.2%<span class="needchk">*</span></td><td class="down">1일 하락</td><td>46.3</td><td class="needchk">Neutral</td></tr>
+          <tr><td>금<span class="supp-ticker">GOLD</span></td><td class="down">-27.7%</td><td class="up">+2.0%</td><td class="down">-6.1%</td><td class="needchk">확인 필요</td><td>48.5</td><td class="needchk">Neutral</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/bitcoin.org" onerror="this.style.display='none'">비트코인<span class="supp-ticker">BTC</span></td><td class="down">-48.5%</td><td class="up">+2.0%</td><td class="down">-25.7%</td><td class="down">2일 하락</td><td>72.5</td><td class="up">Strong Buy</td></tr>
+          <tr><td>원달러 환율<span class="supp-ticker">USDKRW</span></td><td class="down">-5.4%</td><td class="down">-0.7%<span class="needchk">*</span></td><td class="up">+2.2%</td><td class="needchk">확인 필요</td><td>30.2</td><td class="down">Strong Sell</td></tr>
+          <!--SUPP:macro:END-->
         </tbody>
       </table>
-      <div class="card-note">조사 시점 기준. * 표시는 정확히 일치하는 종가를 찾지 못해 인접일 데이터로 보간한 근사치이거나(주간·YTD), 정확한 연속일수를 확인하지 못한 값입니다 — 재확인 권장. 실시간 위젯이 아니라 제가 가끔 수동으로 갱신하는 값입니다.</div>
+      </div>
+      <div class="card-note">페이지 상단의 "보조지표 기준" 날짜 시점 값입니다. 자동갱신 설정 후에는 매일 아침 야후 파이낸스 데이터로 재계산됩니다. 기술등급은 "매수/매도" 개념이 자연스러운 WTI·금·비트코인·원달러 환율에만 표기하고 VIX·금리·달러인덱스는 "해당없음"으로 둡니다. 참고용이며 투자 판단 근거로 쓸 수 없습니다.</div>
+    </details>
     </div>
 
     <div class="card">
@@ -825,18 +896,6 @@
     <div class="card">
       <div class="card-title">주요 종목 실적 발표일 (목록)</div>
       <div class="earn-row">
-        <div><div class="earn-name">GOOGL 알파벳</div><div class="earn-tag">장마감 후</div></div>
-        <div class="earn-date">2026-07-22</div>
-      </div>
-      <div class="earn-row">
-        <div><div class="earn-name">TSLA 테슬라</div><div class="earn-tag">장마감 후</div></div>
-        <div class="earn-date">2026-07-22</div>
-      </div>
-      <div class="earn-row">
-        <div><div class="earn-name">INTC 인텔</div><div class="earn-tag">장마감 후</div></div>
-        <div class="earn-date">2026-07-23</div>
-      </div>
-      <div class="earn-row">
         <div><div class="earn-name">MSFT 마이크로소프트</div><div class="earn-tag">장마감 후</div></div>
         <div class="earn-date">2026-07-29</div>
       </div>
@@ -860,7 +919,7 @@
         <div><div class="earn-name">NVDA 엔비디아</div><div class="earn-tag">장마감 후</div></div>
         <div class="earn-date">2026-08-26</div>
       </div>
-      <div class="card-note">TradingView에는 개별 종목 실적발표일 위젯이 없어서(경제캘린더 위젯은 FOMC·CPI 등 거시지표만 다룸) 이 표는 제가 직접 조사해 수기로 넣은 정보입니다 — 자동 갱신되지 않으니 날짜가 지나면 다시 알려주시면 갱신해드릴게요.</div>
+      <div class="card-note">TradingView에는 개별 종목 실적발표일 위젯이 없어서(경제캘린더 위젯은 FOMC·CPI 등 거시지표만 다룸) 이 표는 제가 직접 조사해 수기로 넣은 정보입니다. 오늘(2026-07-26) 기준 이미 지난 GOOGL·TSLA(7/22)·INTC(7/23)는 목록에서 제외했고(위 달력에는 기록으로 남겨뒀습니다), 자동 갱신되지 않으니 날짜가 지나면 다시 알려주시면 갱신해드릴게요.</div>
     </div>
   </section>
 
@@ -872,6 +931,20 @@
 </div>
 
 <script>
+  function toggleFullscreen(btn) {
+    const wrap = btn.closest('.widget-fullscreen-wrap');
+    if (!document.fullscreenElement) {
+      (wrap.requestFullscreen || wrap.webkitRequestFullscreen || function(){}).call(wrap);
+      btn.textContent = '✕ 닫기';
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
+    }
+  }
+  document.addEventListener('fullscreenchange', () => {
+    document.querySelectorAll('.fullscreen-btn').forEach(b => {
+      b.textContent = document.fullscreenElement ? '✕ 닫기' : '⛶ 전체화면';
+    });
+  });
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
