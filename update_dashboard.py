@@ -6,14 +6,12 @@ index.html 안의 <!--SUPP:섹션:START--> ~ <!--SUPP:섹션:END--> 사이를
 야후 파이낸스 일봉 데이터로 계산한 최신 값으로 갈아끼운다.
 
 계산 지표:
+  일간      : 직전 거래일 종가 대비 현재 종가
   고점대비  : 최근 52주(252거래일) 고가 종가 대비 현재 종가
   주간      : 5거래일 전 종가 대비
   26년 YTD  : 전년도 마지막 종가 대비
   연속      : 연속 상승/하락 일수
   RSI(14)   : Wilder 방식
-  기술등급  : 이동평균 기반 자동 신호 (종가>MA20, 종가>MA50, 종가>MA200, MA50>MA200
-              4개 조건 충족 개수 → 4=Strong Buy, 3=Buy, 2=Neutral, 1=Sell, 0=Strong Sell)
-              ※ 애널리스트 의견이 아니라 가격 데이터만으로 계산한 참고용 신호
 데이터를 못 받아온 종목은 값을 지어내지 않고 "확인 필요"로 표기한다.
 """
 import sys
@@ -123,6 +121,8 @@ def compute(close: pd.Series, rate: bool):
         raise ValueError("not enough data")
     last = float(close.iloc[-1])
 
+    day = (last / float(close.iloc[-2]) - 1) * 100 if len(close) >= 2 else None
+
     high52 = float(close.tail(252).max())
     drawdown = (last / high52 - 1) * 100
 
@@ -155,7 +155,7 @@ def compute(close: pd.Series, rate: bool):
         ma200 = float(close.tail(200).mean())
         score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
         rating = RATING_LABEL[score]
-    return drawdown, week, ytd, (streak, direction), rsi
+    return day, drawdown, week, ytd, (streak, direction), rsi
 
 
 def pct_cell(v):
@@ -180,26 +180,15 @@ def make_row(name, label, logo, sym, rate, closes):
     name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span></td>'
     try:
         close = closes[sym]
-        drawdown, week, ytd, sd, rsi = compute(close, rate)
+        day, drawdown, week, ytd, sd, rsi = compute(close, rate)
+        day_cell = pct_cell(day)
         dd_cell = pct_cell(drawdown)
         wk_cell = pct_cell(week)
         ytd_cell = pct_cell(ytd)
         st_cell = streak_cell(sd)
         rsi_cell = f"<td>{rsi:.1f}</td>"
-        if rate and len(close.dropna()) >= 200:
-            ma20 = float(close.dropna().tail(20).mean())
-            ma50 = float(close.dropna().tail(50).mean())
-            ma200 = float(close.dropna().tail(200).mean())
-            last = float(close.dropna().iloc[-1])
-            score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
-            txt, cls = RATING_LABEL[score]
-            rating_cell = f'<td class="{cls}">{txt}</td>'
-        elif rate:
-            rating_cell = '<td class="needchk">확인 필요</td>'
-        else:
-            rating_cell = '<td class="needchk">해당없음</td>'
-        return (f"          <tr>{name_td}{dd_cell}{wk_cell}{ytd_cell}"
-                f"{st_cell}{rsi_cell}{rating_cell}</tr>")
+        return (f"          <tr>{name_td}{day_cell}{dd_cell}{wk_cell}{ytd_cell}"
+                f"{st_cell}{rsi_cell}</tr>")
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
