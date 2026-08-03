@@ -350,7 +350,7 @@ def build_fng(closes=None):
 # ------------------------------------------------------------- 빅테크 CAPEX
 
 # (표시이름, 티커, 로고도메인)
-M7 = [
+BIGTECH = [
     ("아마존", "AMZN", "amazon.com"),
     ("알파벳", "GOOGL", "abc.xyz"),
     ("마이크로소프트", "MSFT", "microsoft.com"),
@@ -358,6 +358,7 @@ M7 = [
     ("엔비디아", "NVDA", "nvidia.com"),
     ("애플", "AAPL", "apple.com"),
     ("테슬라", "TSLA", "tesla.com"),
+    ("오라클", "ORCL", "oracle.com"),
 ]
 
 # 야후가 이 항목을 부르는 이름이 종목·시점에 따라 다르다. 순서대로 찾는다.
@@ -373,21 +374,50 @@ def quarter_label(ts):
     return f"{ts.year % 100:02d} {q}Q"
 
 
-def fetch_capex(ticker):
-    """[(분기라벨, 금액USD), ...] 오래된 것부터. 실패하면 예외를 던진다."""
+OCF_ROWS = ["Operating Cash Flow", "OperatingCashFlow",
+            "Cash Flow From Continuing Operating Activities",
+            "Total Cash From Operating Activities"]
+
+FCF_ROWS = ["Free Cash Flow", "FreeCashFlow"]
+
+
+def _cf_row(cf, names):
+    row = next((r for r in names if r in cf.index), None)
+    return None if row is None else cf.loc[row].dropna()
+
+
+def fetch_cash(ticker):
+    """(CAPEX, 잉여현금흐름) 두 목록. 각각 [(분기라벨, 금액USD)] 오래된 것부터.
+
+    잉여현금흐름은 야후가 항목으로 직접 주면 그 값을 쓰고, 없으면
+    영업활동현금흐름에서 CAPEX를 뺀다. 두 값이 다 있는 분기만 계산한다
+    (한쪽이 비면 0으로 채우지 않고 그 분기를 건너뛴다).
+    """
     cf = yf.Ticker(ticker).quarterly_cashflow
     if cf is None or cf.empty:
         raise ValueError("빈 현금흐름표")
-    row = next((r for r in CAPEX_ROWS if r in cf.index), None)
-    if row is None:
+
+    cap = _cf_row(cf, CAPEX_ROWS)
+    if cap is None or cap.empty:
         raise ValueError(f"CAPEX 항목 없음 (있는 항목 예: {list(cf.index)[:3]})")
-    s = cf.loc[row].dropna()
-    if s.empty:
-        raise ValueError("CAPEX 값이 전부 비어 있음")
     # 현금흐름표에서 지출은 음수로 들어온다. 크기만 쓴다.
-    s = s.abs().sort_index()
-    s = s[-QUARTERS:]
-    return [(quarter_label(ts), float(v)) for ts, v in s.items()]
+    cap = cap.abs().sort_index()
+
+    fcf = _cf_row(cf, FCF_ROWS)
+    if fcf is not None and not fcf.empty:
+        fcf = fcf.sort_index()
+        fcf_list = [(quarter_label(ts), float(v)) for ts, v in fcf.items()][-QUARTERS:]
+    else:
+        ocf = _cf_row(cf, OCF_ROWS)
+        if ocf is None or ocf.empty:
+            fcf_list = []
+        else:
+            ocf = ocf.sort_index()
+            fcf_list = [(quarter_label(ts), float(ocf[ts]) - float(cap[ts]))
+                        for ts in ocf.index if ts in cap.index][-QUARTERS:]
+
+    cap_list = [(quarter_label(ts), float(v)) for ts, v in cap.items()][-QUARTERS:]
+    return cap_list, fcf_list
 
 
 def bil(v):
@@ -542,8 +572,8 @@ def yoy(vals):
     return (vals[-1] / vals[-5] - 1) * 100
 
 
-def fin_item(name, ticker, logo, series, capex):
-    """capex는 fetch_capex 결과([(분기라벨, 금액)]) 또는 None."""
+def fin_item(name, ticker, logo, series, cash):
+    """cash는 fetch_cash 결과((CAPEX목록, FCF목록)) 또는 None."""
     labs = [q for q, _, _ in series]
     revs = [r for _, r, _ in series]
     ops = [o for _, _, o in series]
@@ -553,13 +583,16 @@ def fin_item(name, ticker, logo, series, capex):
 
     # CAPEX는 현금흐름표라 분기 수가 손익계산서와 다를 수 있다.
     # 분기 라벨을 열쇠로 맞춰 붙이고, 없는 분기는 None으로 둔다(0으로 채우지 않는다).
-    if capex:
-        cmap = dict(capex)
+    if cash:
+        capex, fcflist = cash
+        cmap, fmap = dict(capex), dict(fcflist)
         caps = [cmap.get(q) for q in labs]
+        fcfs = [fmap.get(q) for q in labs]
         cap_chg = pct_span(yoy(caps))
+        fcf_chg = pct_span(yoy(fcfs))
     else:
-        caps = [None] * len(labs)
-        cap_chg = '<span class="needchk">확인 필요</span>'
+        caps = fcfs = [None] * len(labs)
+        cap_chg = fcf_chg = '<span class="needchk">확인 필요</span>'
 
     logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
                  f"onerror=\"this.style.display='none'\">")
@@ -574,7 +607,9 @@ def fin_item(name, ticker, logo, series, capex):
         + fin_metric("영업이익률", mgs, labs, lambda v: f"{v:.1f}%",
                      pp_span(mg_pp), kind="pct") + "\n"
         + fin_metric("설비투자(CAPEX)", caps, labs, bil, cap_chg) + "\n"
+        + fin_metric("잉여현금흐름(FCF)", fcfs, labs, bil, fcf_chg) + "\n"
         '            </div>\n'
+        + cloud_block(ticker, labs) + "\n"
         '          </div>'
     )
 
@@ -589,23 +624,138 @@ def fin_item_fail(name, ticker, logo, why):
             '          </div>')
 
 
+
+# --------------------------------------------------- 클라우드(데이터센터 대여) 부문
+#
+# 부문별 매출은 야후 무료 데이터에 없다. 회사가 실적 발표에서만 공개하기 때문에
+# 여기에 손으로 적어 둔다. 이 표는 자동으로 갱신되지 않는다.
+#
+# - 분기 라벨은 "기간 종료일 기준 달력 분기"다. 손익계산서 라벨과 규칙이 같으므로
+#   회계연도가 다른 오라클(5월 결산)·마이크로소프트(6월 결산)도 같은 칸에 맞춰진다.
+# - 새 분기 실적이 나오면 아래 표에 한 줄씩 손으로 추가해야 한다. 추가하지 않으면
+#   화면에 "손익 최신 분기보다 이전 값"이라고 뜬다. 옛 값을 조용히 최신인 척
+#   보여주지 않기 위한 장치다.
+# - 마이크로소프트는 Azure 단독 매출 금액을 공개하지 않는다. 성장률(%)만 발표하므로
+#   Azure만 mode="growth"로 두고 금액 자리를 비운다. 없는 금액을 만들어 내지 않는다.
+# - 단위는 달러다(백만 달러 표기를 10억 단위 그래프가 쓰도록 1e6을 곱해 둔다).
+
+_M = 1e6   # 아래 표는 백만 달러 단위로 적는다
+
+
+CLOUD_SEG = {
+    "AMZN": {
+        "label": "AWS",
+        "mode": "money",
+        "rev": {"24 3Q": 27452, "24 4Q": 28786, "25 1Q": 29267, "25 2Q": 30873,
+                "25 3Q": 33006, "25 4Q": 35579, "26 1Q": 37587, "26 2Q": 42232},
+        "opi": {"24 3Q": 10447, "24 4Q": 10632, "25 1Q": 11547, "25 2Q": 10160,
+                "25 3Q": 11434, "25 4Q": 12465, "26 1Q": 14161, "26 2Q": 16621},
+        "src": "https://ir.aboutamazon.com/quarterly-results/",
+        "srctxt": "아마존 실적 발표 세그먼트 표",
+    },
+    "GOOGL": {
+        "label": "구글 클라우드",
+        "mode": "money",
+        "rev": {"24 3Q": 11353, "24 4Q": 11955, "25 1Q": 12260, "25 2Q": 13624,
+                "25 3Q": 15157, "25 4Q": 17664, "26 1Q": 20028, "26 2Q": 24768},
+        "opi": {"24 3Q": 1947, "24 4Q": 2093, "25 1Q": 2177, "25 2Q": 2826,
+                "25 3Q": 3594, "25 4Q": 5313, "26 1Q": 6598, "26 2Q": 8814},
+        "src": "https://abc.xyz/investor/",
+        "srctxt": "알파벳 실적 발표 세그먼트 표",
+    },
+    "ORCL": {
+        # 오라클은 회계연도가 5월에 끝난다. FY26 4분기(3~5월)가 달력 26 2Q에 들어간다.
+        "label": "오라클 클라우드 인프라(OCI)",
+        "mode": "money",
+        "rev": {"24 3Q": 2154, "24 4Q": 2434, "25 1Q": 2652, "25 2Q": 2995,
+                "25 3Q": 3347, "25 4Q": 4079, "26 1Q": 4888, "26 2Q": 5787},
+        "opi": None,          # 오라클은 클라우드 부문 영업이익을 따로 공시하지 않는다
+        "extra": "같은 분기 클라우드 전체(IaaS+SaaS) 매출 99.1억 달러, "
+                 "수주잔고(RPO) 6,380억 달러",
+        "src": "https://investor.oracle.com/",
+        "srctxt": "오라클 실적 발표",
+    },
+    "MSFT": {
+        "label": "Azure",
+        "mode": "growth",
+        # 마이크로소프트는 회계연도가 6월에 끝난다. FY26 4분기(4~6월)가 달력 26 2Q다.
+        "growth": {"24 3Q": 33, "24 4Q": 31, "25 1Q": 33, "25 2Q": 39,
+                   "25 3Q": 40, "25 4Q": 39, "26 1Q": 40, "26 2Q": 43},
+        "src": "https://www.microsoft.com/en-us/investor/earnings/",
+        "srctxt": "마이크로소프트 실적 발표",
+    },
+}
+
+
+def cloud_block(ticker, labs):
+    """손익 카드 아래에 붙는 클라우드 부문 줄. 해당 없는 종목이면 빈 문자열."""
+    c = CLOUD_SEG.get(ticker)
+    if not c:
+        return ""
+
+    if c["mode"] == "growth":
+        src_map = c["growth"]
+        vals = [src_map.get(q) for q in labs]
+        gap = None
+        if len(vals) >= 5 and vals[-1] is not None and vals[-5] is not None:
+            gap = vals[-1] - vals[-5]
+        metrics = fin_metric("Azure 성장률(전년 동기 대비)", vals, labs,
+                             lambda v: f"{v:.0f}%", pp_span(gap), kind="pct",
+                             chg_label="1년 전 성장률과 비교")
+        caveat = ("마이크로소프트는 Azure 매출 <b>금액</b>을 공개하지 않습니다. "
+                  "발표되는 성장률만 옮겨 적었습니다.")
+    else:
+        src_map = c["rev"]
+        revs = [None if src_map.get(q) is None else src_map[q] * _M for q in labs]
+        metrics = fin_metric(f'{c["label"]} 매출', revs, labs, bil, pct_span(yoy(revs)))
+        if c.get("opi"):
+            opis = [None if c["opi"].get(q) is None else c["opi"][q] * _M for q in labs]
+            metrics += "\n" + fin_metric(f'{c["label"]} 영업이익', opis, labs,
+                                         bil, pct_span(yoy(opis)))
+        caveat = c.get("extra", "")
+
+    # 이 표에 값이 들어 있는 마지막 분기. 손익 최신 분기보다 뒤처지면 그렇다고 적는다.
+    have = [q for q in labs if src_map.get(q) is not None]
+    if not have:
+        return ('            <div class="fin-cloud">\n'
+                f'              <div class="fin-cloud-head">클라우드 부문 — {c["label"]}</div>\n'
+                '              <div class="fin-cloud-note needchk">확인 필요 — '
+                '이 분기 구간의 공시 값이 아직 표에 없습니다</div>\n'
+                '            </div>')
+
+    stale = ("" if have[-1] == labs[-1] else
+             f'<span class="needchk">손익 최신 분기({labs[-1]})보다 이전 값</span> · ')
+    note = (f'{stale}기준 {have[-1]} · 회사 공시를 손으로 옮겨 적은 값이라 '
+            f'자동 갱신되지 않습니다 · '
+            f'<a href="{c["src"]}" target="_blank" rel="noopener">{c["srctxt"]}</a>')
+    if caveat:
+        note = caveat + " · " + note
+
+    return ('            <div class="fin-cloud">\n'
+            f'              <div class="fin-cloud-head">클라우드(데이터센터 대여) 부문 — '
+            f'{c["label"]}</div>\n'
+            '              <div class="fin-cmetrics">\n' + metrics + "\n"
+            '              </div>\n'
+            f'              <div class="fin-cloud-note">{note}</div>\n'
+            '            </div>')
+
 def build_fin():
     items, ok, cok = [], 0, 0
-    for name, ticker, logo in M7:
-        # CAPEX는 따로 받는다. 이쪽이 실패해도 매출·영업이익은 그대로 보여준다.
+    for name, ticker, logo in BIGTECH:
+        # 현금흐름표는 따로 받는다. 이쪽이 실패해도 매출·영업이익은 그대로 보여준다.
         try:
-            capex = fetch_capex(ticker)
+            cash = fetch_cash(ticker)
             cok += 1
         except Exception as e:
-            print(f"  [warn] CAPEX {ticker}: {e}", file=sys.stderr)
-            capex = None
+            print(f"  [warn] 현금흐름 {ticker}: {e}", file=sys.stderr)
+            cash = None
         try:
-            items.append(fin_item(name, ticker, logo, fetch_fin(ticker), capex))
+            items.append(fin_item(name, ticker, logo, fetch_fin(ticker), cash))
             ok += 1
         except Exception as e:
             print(f"  [warn] 재무 {ticker}: {e}", file=sys.stderr)
             items.append(fin_item_fail(name, ticker, logo, "분기 손익계산서를 못 받아왔습니다"))
-    print(f"  fin {ok}/{len(M7)} (capex {cok}/{len(M7)})")
+    print(f"  fin {ok}/{len(BIGTECH)} (cash {cok}/{len(BIGTECH)})")
     return '        <div class="fin-grid">\n' + "\n".join(items) + "\n        </div>"
 
 # ------------------------------------------------------------- 주요 지수 카드
