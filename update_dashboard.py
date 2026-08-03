@@ -39,46 +39,76 @@ SECTIONS = {
     "us30": [
         ("엔비디아", "NVDA", "nvidia.com", "NVDA", True),
         ("애플", "AAPL", "apple.com", "AAPL", True),
-        ("마이크로소프트", "MSFT", "microsoft.com", "MSFT", True),
         ("알파벳", "GOOGL", "abc.xyz", "GOOGL", True),
+        ("마이크로소프트", "MSFT", "microsoft.com", "MSFT", True),
         ("아마존", "AMZN", "amazon.com", "AMZN", True),
-        ("메타", "META", "meta.com", "META", True),
-        ("테슬라", "TSLA", "tesla.com", "TSLA", True),
         ("TSMC", "TSM", "tsmc.com", "TSM", True),
         ("브로드컴", "AVGO", "broadcom.com", "AVGO", True),
+        ("스페이스X", "SPCX", "spacex.com", "SPCX", True),
+        ("메타", "META", "meta.com", "META", True),
+        ("테슬라", "TSLA", "tesla.com", "TSLA", True),
         ("버크셔해서웨이", "BRK.B", "berkshirehathaway.com", "BRK-B", True),
         ("일라이릴리", "LLY", "lilly.com", "LLY", True),
         ("마이크론", "MU", "micron.com", "MU", True),
         ("JP모건", "JPM", "jpmorganchase.com", "JPM", True),
         ("월마트", "WMT", "walmart.com", "WMT", True),
         ("AMD", "AMD", "amd.com", "AMD", True),
-        ("비자", "V", "visa.com", "V", True),
         ("ASML", "ASML", "asml.com", "ASML", True),
+        ("비자", "V", "visa.com", "V", True),
         ("엑슨모빌", "XOM", "exxonmobil.com", "XOM", True),
         ("존슨앤존슨", "JNJ", "jnj.com", "JNJ", True),
-        ("인텔", "INTC", "intel.com", "INTC", True),
         ("마스터카드", "MA", "mastercard.com", "MA", True),
+        ("인텔", "INTC", "intel.com", "INTC", True),
         ("애브비", "ABBV", "abbvie.com", "ABBV", True),
         ("시스코", "CSCO", "cisco.com", "CSCO", True),
+        ("뱅크오브아메리카", "BAC", "bankofamerica.com", "BAC", True),
         ("어플라이드머티리얼즈", "AMAT", "appliedmaterials.com", "AMAT", True),
         ("코스트코", "COST", "costco.com", "COST", True),
         ("캐터필러", "CAT", "caterpillar.com", "CAT", True),
-        ("램리서치", "LRCX", "lamresearch.com", "LRCX", True),
         ("쉐브론", "CVX", "chevron.com", "CVX", True),
+        ("유나이티드헬스", "UNH", "unitedhealthgroup.com", "UNH", True),
+        ("램리서치", "LRCX", "lamresearch.com", "LRCX", True),
+        ("GE에어로스페이스", "GE", "geaerospace.com", "GE", True),
+        ("HSBC", "HSBC", "hsbc.com", "HSBC", True),
+        ("코카콜라", "KO", "coca-colacompany.com", "KO", True),
+        ("P&amp;G", "PG", "pg.com", "PG", True),
+        ("모건스탠리", "MS", "morganstanley.com", "MS", True),
+        ("홈디포", "HD", "homedepot.com", "HD", True),
         ("오라클", "ORCL", "oracle.com", "ORCL", True),
+        ("골드만삭스", "GS", "goldmansachs.com", "GS", True),
+        ("머크", "MRK", "merck.com", "MRK", True),
+        ("필립모리스", "PM", "pmi.com", "PM", True),
+        ("노바티스", "NVS", "novartis.com", "NVS", True),
+        ("팔란티어", "PLTR", "palantir.com", "PLTR", True),
+        ("넷플릭스", "NFLX", "netflix.com", "NFLX", True),
+        ("로열뱅크오브캐나다", "RY", "rbc.com", "RY", True),
+        ("RTX", "RTX", "rtx.com", "RTX", True),
+        ("델테크놀로지스", "DELL", "dell.com", "DELL", True),
         ("ARM", "ARM", "arm.com", "ARM", True),
+        ("KLA", "KLAC", "kla.com", "KLAC", True),
+        ("GE버노바", "GEV", "gevernova.com", "GEV", True),
     ],
     "kr10": [
         ("삼성전자", "005930", "samsung.com", "005930.KS", True),
         ("SK하이닉스", "000660", "skhynix.com", "000660.KS", True),
+        ("SK스퀘어", "402340", "sksquare.com", "402340.KS", True),
+        ("현대차", "005380", "hyundai.com", "005380.KS", True),
+        ("삼성전기", "009150", "samsungsem.com", "009150.KS", True),
         ("LG에너지솔루션", "373220", "lgensol.com", "373220.KS", True),
         ("삼성바이오로직스", "207940", "samsungbiologics.com", "207940.KS", True),
-        ("현대차", "005380", "hyundai.com", "005380.KS", True),
         ("KB금융", "105560", "kbfg.com", "105560.KS", True),
-        ("삼성물산", "028260", "samsungcnt.com", "028260.KS", True),
         ("삼성생명", "032830", "samsunglife.com", "032830.KS", True),
-        ("삼성전기", "009150", "samsungsem.com", "009150.KS", True),
-        ("SK스퀘어", "402340", "sksquare.com", "402340.KS", True),
+        ("삼성물산", "028260", "samsungcnt.com", "028260.KS", True),
+        ("기아", "000270", "kia.com", "000270.KS", True),
+        ("HD현대중공업", "329180", "hd.com", "329180.KS", True),
+        ("신한지주", "055550", "shinhangroup.com", "055550.KS", True),
+        ("한화에어로스페이스", "012450", "hanwhaaerospace.com", "012450.KS", True),
+        ("현대모비스", "012330", "mobis.co.kr", "012330.KS", True),
+        ("두산에너빌리티", "034020", "doosanenerbility.com", "034020.KS", True),
+        ("셀트리온", "068270", "celltrion.com", "068270.KS", True),
+        ("SK", "034730", "sk.com", "034730.KS", True),
+        ("하나금융지주", "086790", "hanafn.com", "086790.KS", True),
+        ("네이버", "035420", "navercorp.com", "035420.KS", True),
     ],
     # 같은 지수를 따라가는 ETF는 대표 하나만 남기고 나머지는 그 옆에 작게 병기한다.
     # (IVV·SPY는 VOO와 같은 S&P500, VUG는 QQQ와 보유 종목이 크게 겹친다)
@@ -428,6 +458,142 @@ def build_capex():
     return '        <div class="capex-grid">\n' + "\n".join(items) + "\n        </div>"
 
 
+# ------------------------------------------------- 빅테크 매출 / 영업이익 / 이익률
+#
+# 야후 분기 손익계산서에서 매출과 영업이익을 받아 이익률까지 계산한다.
+# - 성장률은 전년 동기 대비(YoY)다. 4분기 전 값과 비교하므로 최소 5개 분기가 있어야 한다.
+# - 이익률은 % 자체가 값이므로 증감을 %가 아니라 %p로 적는다.
+#   (12% -> 15%는 "3%p 상승"이지 "3% 상승"이 아니다. 이 둘을 섞으면 숫자가 거짓말이 된다)
+# - 매출이 0이거나 없는 분기는 이익률을 계산하지 않고 건너뛴다.
+# - 야후 무료 데이터는 보통 5~8분기만 준다. 모자라면 있는 만큼만 그린다.
+
+FIN_QUARTERS = 8
+
+# 야후가 항목을 부르는 이름이 종목·시점마다 다르다. 순서대로 찾는다.
+REV_ROWS = ["Total Revenue", "TotalRevenue", "Operating Revenue", "OperatingRevenue"]
+OPI_ROWS = ["Operating Income", "OperatingIncome",
+            "Total Operating Income As Reported", "TotalOperatingIncomeAsReported"]
+
+
+def _pick_row(df, names):
+    row = next((r for r in names if r in df.index), None)
+    return None if row is None else df.loc[row].dropna()
+
+
+def fetch_fin(ticker):
+    """[(분기라벨, 매출, 영업이익), ...] 오래된 것부터. 실패하면 예외."""
+    inc = yf.Ticker(ticker).quarterly_income_stmt
+    if inc is None or inc.empty:
+        raise ValueError("빈 손익계산서")
+    rev = _pick_row(inc, REV_ROWS)
+    opi = _pick_row(inc, OPI_ROWS)
+    if rev is None or rev.empty:
+        raise ValueError(f"매출 항목 없음 (있는 항목 예: {list(inc.index)[:3]})")
+    if opi is None or opi.empty:
+        raise ValueError("영업이익 항목 없음")
+    out = []
+    for ts in sorted(set(rev.index) & set(opi.index)):
+        r, o = float(rev[ts]), float(opi[ts])
+        if r <= 0:
+            continue          # 매출이 없으면 이익률을 계산할 수 없다
+        out.append((quarter_label(ts), r, o))
+    if not out:
+        raise ValueError("매출·영업이익이 같이 있는 분기가 없음")
+    return out[-FIN_QUARTERS:]
+
+
+def pp_span(v):
+    """%p 증감. 표시가 소수 한 자리이므로 반올림한 값으로 색을 정한다."""
+    if v is None:
+        return '<span class="needchk">확인 필요</span>'
+    d = round(v, 1) + 0.0
+    cls = "up" if d > 0 else ("down" if d < 0 else "flat")
+    return f'<span class="{cls}">{d:+.1f}%p</span>'
+
+
+def fin_bars(vals, labs, fmt):
+    """막대 8개. 값이 음수면 아래쪽 색으로 구분한다."""
+    peak = max((abs(v) for v in vals if v is not None), default=0)
+    out = []
+    for i, (v, lab) in enumerate(zip(vals, labs)):
+        if v is None:
+            out.append('<div class="fin-bar"><div class="fin-fill is-na" '
+                       f'style="height:3%" title="{lab} 확인 필요"></div>'
+                       f'<div class="fin-xlab">{lab}</div></div>')
+            continue
+        h = max(3, round(abs(v) / peak * 100)) if peak > 0 else 3
+        cls = " is-neg" if v < 0 else (" is-last" if i == len(vals) - 1 else "")
+        out.append(f'<div class="fin-bar"><div class="fin-fill{cls}" '
+                   f'style="height:{h}%" title="{lab} {fmt(v)}"></div>'
+                   f'<div class="fin-xlab">{lab}</div></div>')
+    return "".join(out)
+
+
+def fin_metric(label, vals, labs, fmt, chg_html):
+    cur = vals[-1]
+    val_html = (f'<div class="fin-mval">{fmt(cur)}</div>' if cur is not None
+                else '<div class="fin-mval needchk">확인 필요</div>')
+    return ('            <div class="fin-metric">\n'
+            f'              <div class="fin-mlabel">{label}</div>\n'
+            f'              {val_html}\n'
+            f'              <div class="fin-mchg">전년 동기 대비 {chg_html}</div>\n'
+            f'              <div class="fin-bars">{fin_bars(vals, labs, fmt)}</div>\n'
+            '            </div>')
+
+
+def fin_item(name, ticker, logo, series):
+    labs = [q for q, _, _ in series]
+    revs = [r for _, r, _ in series]
+    ops = [o for _, _, o in series]
+    mgs = [o / r * 100 for _, r, o in series]
+
+    def yoy(vals):
+        # 4분기 전과 비교한다. 데이터가 5개 미만이면 계산하지 않는다.
+        if len(vals) < 5:
+            return None
+        base = vals[-5]
+        return (vals[-1] / base - 1) * 100 if base else None
+
+    mg_pp = (mgs[-1] - mgs[-5]) if len(mgs) >= 5 else None
+
+    logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
+                 f"onerror=\"this.style.display='none'\">")
+    return (
+        '          <div class="fin-item">\n'
+        f'            <div class="fin-head">{logo_html}{name}'
+        f'<span class="supp-ticker">{ticker}</span>'
+        f'<span class="fin-q">{labs[-1]} 기준</span></div>\n'
+        '            <div class="fin-metrics">\n'
+        + fin_metric("매출", revs, labs, bil, pct_span(yoy(revs))) + "\n"
+        + fin_metric("영업이익", ops, labs, bil, pct_span(yoy(ops))) + "\n"
+        + fin_metric("영업이익률", mgs, labs, lambda v: f"{v:.1f}%", pp_span(mg_pp)) + "\n"
+        '            </div>\n'
+        '          </div>'
+    )
+
+
+def fin_item_fail(name, ticker, logo, why):
+    logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
+                 f"onerror=\"this.style.display='none'\">")
+    return ('          <div class="fin-item">\n'
+            f'            <div class="fin-head">{logo_html}{name}'
+            f'<span class="supp-ticker">{ticker}</span></div>\n'
+            f'            <div class="fin-fail needchk">확인 필요 — {why}</div>\n'
+            '          </div>')
+
+
+def build_fin():
+    items, ok = [], 0
+    for name, ticker, logo in M7:
+        try:
+            items.append(fin_item(name, ticker, logo, fetch_fin(ticker)))
+            ok += 1
+        except Exception as e:
+            print(f"  [warn] 재무 {ticker}: {e}", file=sys.stderr)
+            items.append(fin_item_fail(name, ticker, logo, "분기 손익계산서를 못 받아왔습니다"))
+    print(f"  fin {ok}/{len(M7)}")
+    return '        <div class="fin-grid">\n' + "\n".join(items) + "\n        </div>"
+
 # ------------------------------------------------------------- 주요 지수 카드
 
 # (표시이름, 짧은라벨, 야후심볼, 트레이딩뷰심볼, 소수점자리)
@@ -568,6 +734,88 @@ def build_fng_kr(closes):
     except Exception as e:
         print(f"  [warn] 한국 심리지수: {e}", file=sys.stderr)
         return fng_item_fail("한국 주식 (자체 산출)", "계산에 필요한 데이터를 못 받아왔습니다")
+
+
+# ------------------------------------------------------ 미 국채 금리 / 장단기차
+#
+# ^TNX(10년물)와 2YY=F(2년물)는 이미 macro 섹션에서 받아오므로 그 값을 다시 쓴다.
+# 둘 다 "연 몇 %"로 들어온다. 금리 얘기에서 흔히 쓰는 bp(베이시스포인트)는
+# 0.01%p이므로, 0.52%p = 52bp다. 화면에는 %p와 bp를 같이 적는다.
+# 두 값 중 하나라도 없으면 금리차를 계산하지 않고 "확인 필요"로 둔다.
+
+Y10 = "^TNX"
+Y02 = "2YY=F"
+
+
+def ago(s, days):
+    """days 거래일 전 값. 데이터가 모자라면 None."""
+    if len(s) > days:
+        return float(s.iloc[-1 - days])
+    return None
+
+
+def yld_item(label, val, prev, m1, y1, unit="%"):
+    if val is None:
+        return ('          <div class="yld-item">\n'
+                f'            <div class="yld-label">{label}</div>\n'
+                '            <div class="yld-val needchk">확인 필요</div>\n'
+                '            <div class="yld-sub">값을 못 받아왔습니다</div>\n'
+                '          </div>')
+    if prev is None:
+        chg_html = '<span class="yld-chg needchk">전일 대비 확인 필요</span>'
+    else:
+        # 표시는 소수 둘째 자리까지다. 반올림하면 0인데 색만 오르내리면 거짓말이 되므로
+        # 반올림한 값으로 색을 정한다.
+        d = round(val - prev, 2) + 0.0
+        cls = "up" if d > 0 else ("down" if d < 0 else "flat")
+        chg_html = f'<span class="yld-chg {cls}">전일 대비 {d:+.2f}%p</span>'
+    hist = " · ".join(
+        f"{tag} {v:.2f}{unit}" if v is not None else f"{tag} 확인 필요"
+        for tag, v in (("1개월 전", m1), ("1년 전", y1)))
+    return ('          <div class="yld-item">\n'
+            f'            <div class="yld-label">{label}</div>\n'
+            f'            <div class="yld-val">{val:.2f}{unit}</div>\n'
+            f'            <div class="yld-sub">{chg_html}</div>\n'
+            f'            <div class="yld-hist">{hist}</div>\n'
+            '          </div>')
+
+
+def build_yield(closes):
+    def pick(sym):
+        try:
+            s = closes[sym].dropna()
+            if len(s) < 2:
+                return None, None, None, None
+            return float(s.iloc[-1]), ago(s, 1), ago(s, 21), ago(s, 252)
+        except Exception as e:
+            print(f"  [warn] 금리 {sym}: {e}", file=sys.stderr)
+            return None, None, None, None
+
+    t10, p10, m10, y10 = pick(Y10)
+    t02, p02, m02, y02 = pick(Y02)
+
+    items = [yld_item("미 10년물", t10, p10, m10, y10),
+             yld_item("미 2년물", t02, p02, m02, y02)]
+
+    if t10 is None or t02 is None:
+        items.append(yld_item("장단기 금리차 (10년 − 2년)", None, None, None, None))
+        state = '<span class="needchk">두 금리를 다 받아와야 계산할 수 있습니다</span>'
+    else:
+        sp = t10 - t02
+        spp = (p10 - p02) if (p10 is not None and p02 is not None) else None
+        spm = (m10 - m02) if (m10 is not None and m02 is not None) else None
+        spy = (y10 - y02) if (y10 is not None and y02 is not None) else None
+        items.append(yld_item("장단기 금리차 (10년 − 2년)", sp, spp, spm, spy, unit="%p"))
+        if sp < 0:
+            state = ('<b class="down">역전 상태</b> — 2년물이 10년물보다 '
+                     f'{abs(sp) * 100:.0f}bp 높습니다')
+        else:
+            state = ('<b class="up">역전 아님</b> — 10년물이 2년물보다 '
+                     f'{sp * 100:.0f}bp 높습니다')
+        print(f"  금리 10Y={t10:.2f} 2Y={t02:.2f} 차={sp:+.2f}%p")
+
+    return ('        <div class="yld-grid">\n' + "\n".join(items) + "\n        </div>\n"
+            f'        <div class="yld-state">{state}</div>')
 
 
 # --------------------------------------------------------- 실적 캘린더 (자동)
@@ -763,6 +1011,9 @@ def main(html_path):
     print("fetching fear & greed...")
     html, fng_ok = splice(html, "FNG", build_fng(closes))
 
+    print("building yield curve...")
+    html, yld_ok = splice(html, "YIELD", build_yield(closes))
+
     print("fetching earnings dates...")
     earn_rows, earn_miss = collect_earnings()
     html, ecal_ok = splice(html, "EARNCAL", build_earn_cal(earn_rows))
@@ -775,6 +1026,9 @@ def main(html_path):
 
     print("fetching big-tech capex...")
     html, capex_ok = splice(html, "CAPEX", build_capex())
+
+    print("fetching big-tech financials...")
+    html, fin_ok = splice(html, "FIN", build_fin())
 
     # 깃허브 서버는 UTC로 돌아가므로, 한국시간 기준 날짜로 찍는다.
     # (UTC 21:37 실행 = 한국 다음날 06:37 → UTC 날짜를 쓰면 하루 밀려 보인다)
@@ -791,7 +1045,9 @@ def main(html_path):
           f"idx={'ok' if idx_ok else 'MARKER MISSING'}, "
           f"earn={'ok' if ecal_ok and elist_ok else 'MARKER MISSING'}({len(earn_rows)}건), "
           f"fng={'ok' if fng_ok else 'MARKER MISSING'}, "
-          f"capex={'ok' if capex_ok else 'MARKER MISSING'}, date={today}")
+          f"yield={'ok' if yld_ok else 'MARKER MISSING'}, "
+          f"capex={'ok' if capex_ok else 'MARKER MISSING'}, "
+          f"fin={'ok' if fin_ok else 'MARKER MISSING'}, date={today}")
 
 
 if __name__ == "__main__":
