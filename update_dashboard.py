@@ -364,7 +364,7 @@ M7 = [
 CAPEX_ROWS = ["Capital Expenditure", "CapitalExpenditure",
               "Capital Expenditures", "Purchase Of PPE", "PurchaseOfPPE"]
 
-QUARTERS = 6  # 화면에 보여줄 최근 분기 수
+QUARTERS = 8  # 화면에 보여줄 최근 분기 수 (실적 카드와 맞춘다)
 
 
 def quarter_label(ts):
@@ -401,61 +401,6 @@ def pct_span(v):
     return f'<span class="{cls}">{v:+.1f}%</span>'
 
 
-def capex_item(name, ticker, logo, series):
-    peak = max(v for _, v in series)
-    bars = []
-    for i, (lab, v) in enumerate(series):
-        h = max(3, round(v / peak * 100)) if peak > 0 else 3
-        last = " is-last" if i == len(series) - 1 else ""
-        bars.append(f'<div class="capex-bar"><div class="capex-fill{last}" '
-                    f'style="height:{h}%" title="{lab} {bil(v)}"></div>'
-                    f'<div class="capex-xlab">{lab}</div></div>')
-
-    def change(back):
-        if len(series) <= back:
-            return None
-        base = series[-1 - back][1]
-        return (series[-1][1] / base - 1) * 100 if base else None
-
-    logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
-                 f"onerror=\"this.style.display='none'\">")
-    return (
-        '          <div class="capex-item">\n'
-        f'            <div class="capex-head">{logo_html}{name}'
-        f'<span class="supp-ticker">{ticker}</span></div>\n'
-        f'            <div class="capex-latest">{bil(series[-1][1])}'
-        f'<span class="capex-q">{series[-1][0]}</span></div>\n'
-        f'            <div class="capex-bars">{"".join(bars)}</div>\n'
-        f'            <div class="capex-delta">전분기 대비 {pct_span(change(1))} · '
-        f'1년 전 대비 {pct_span(change(4))}</div>\n'
-        '          </div>'
-    )
-
-
-def capex_item_fail(name, ticker, logo, why):
-    logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
-                 f"onerror=\"this.style.display='none'\">")
-    return (
-        '          <div class="capex-item">\n'
-        f'            <div class="capex-head">{logo_html}{name}'
-        f'<span class="supp-ticker">{ticker}</span></div>\n'
-        '            <div class="capex-latest needchk">확인 필요</div>\n'
-        f'            <div class="capex-delta">{why}</div>\n'
-        '          </div>'
-    )
-
-
-def build_capex():
-    items, ok = [], 0
-    for name, ticker, logo in M7:
-        try:
-            items.append(capex_item(name, ticker, logo, fetch_capex(ticker)))
-            ok += 1
-        except Exception as e:
-            print(f"  [warn] CAPEX {ticker}: {e}", file=sys.stderr)
-            items.append(capex_item_fail(name, ticker, logo, "분기 현금흐름표를 못 받아왔습니다"))
-    print(f"  capex {ok}/{len(M7)}")
-    return '        <div class="capex-grid">\n' + "\n".join(items) + "\n        </div>"
 
 
 # ------------------------------------------------- 빅테크 매출 / 영업이익 / 이익률
@@ -511,50 +456,110 @@ def pp_span(v):
     return f'<span class="{cls}">{d:+.1f}%p</span>'
 
 
-def fin_bars(vals, labs, fmt):
-    """막대 8개. 값이 음수면 아래쪽 색으로 구분한다."""
-    peak = max((abs(v) for v in vals if v is not None), default=0)
-    out = []
-    for i, (v, lab) in enumerate(zip(vals, labs)):
+# 꺾은선 그래프 크기(SVG 좌표계). 실제 화면 폭은 CSS가 100%로 늘려준다.
+CH_W, CH_H = 320.0, 100.0
+CH_L, CH_R, CH_T, CH_B = 16.0, 16.0, 16.0, 16.0   # 위쪽은 값 글씨, 아래쪽은 분기 글씨 자리
+
+
+def short(v, kind):
+    """표식 옆에 붙일 짧은 숫자. 단위는 위의 큰 숫자에 이미 적혀 있다."""
+    if kind == "pct":
+        return f"{v:.1f}"
+    b = v / 1e9
+    return f"{b:.0f}" if abs(b) >= 100 else f"{b:.1f}"
+
+
+def fin_chart(vals, labs, fmt, kind):
+    """표식이 있는 꺾은선. 값이 없는 분기는 선을 잇지 않고 비워 둔다."""
+    known = [v for v in vals if v is not None]
+    if not known:
+        return '<div class="fin-nochart needchk">그릴 값이 없습니다</div>'
+
+    lo, hi = min(known), max(known)
+    if hi == lo:
+        hi, lo = hi + 1, lo - 1
+    pad = (hi - lo) * 0.12
+    lo, hi = lo - pad, hi + pad
+    # 세로축은 값의 범위에 맞춰 자동으로 잡는다. 0부터 그리지 않으므로 기울기만
+    # 보고 크기를 판단하면 안 된다. 그래서 표식마다 실제 숫자를 같이 찍는다.
+
+    n = len(vals)
+    def px(i):
+        return CH_L if n == 1 else CH_L + i * (CH_W - CH_L - CH_R) / (n - 1)
+    def py(v):
+        return CH_H - CH_B - (v - lo) / (hi - lo) * (CH_H - CH_T - CH_B)
+
+    parts = []
+    if any(v < 0 for v in known) and lo < 0 < hi:   # 적자 분기가 있을 때만 0선을 그린다
+        parts.append(f'<line class="fin-zero" x1="0" y1="{py(0):.1f}" '
+                     f'x2="{CH_W:.0f}" y2="{py(0):.1f}"/>')
+
+    # 값이 끊긴 구간은 선을 잇지 않는다(없는 걸 이어 그리면 거짓말이 된다)
+    seg = []
+    for i, v in enumerate(vals):
         if v is None:
-            out.append('<div class="fin-bar"><div class="fin-fill is-na" '
-                       f'style="height:3%" title="{lab} 확인 필요"></div>'
-                       f'<div class="fin-xlab">{lab}</div></div>')
+            if len(seg) > 1:
+                parts.append(f'<polyline class="fin-line" points="{" ".join(seg)}"/>')
+            seg = []
+        else:
+            seg.append(f"{px(i):.1f},{py(v):.1f}")
+    if len(seg) > 1:
+        parts.append(f'<polyline class="fin-line" points="{" ".join(seg)}"/>')
+
+    for i, (v, lab) in enumerate(zip(vals, labs)):
+        x = px(i)
+        if v is None:
+            parts.append(f'<text class="fin-xlab" x="{x:.1f}" y="{CH_H - 3:.1f}">{lab}</text>')
             continue
-        h = max(3, round(abs(v) / peak * 100)) if peak > 0 else 3
-        cls = " is-neg" if v < 0 else (" is-last" if i == len(vals) - 1 else "")
-        out.append(f'<div class="fin-bar"><div class="fin-fill{cls}" '
-                   f'style="height:{h}%" title="{lab} {fmt(v)}"></div>'
-                   f'<div class="fin-xlab">{lab}</div></div>')
-    return "".join(out)
+        y = py(v)
+        last = " is-last" if i == n - 1 else ""
+        parts.append(f'<circle class="fin-dot{last}" cx="{x:.1f}" cy="{y:.1f}" r="2.6">'
+                     f'<title>{lab} {fmt(v)}</title></circle>')
+        parts.append(f'<text class="fin-plab{last}" x="{x:.1f}" y="{y - 6:.1f}">'
+                     f'{short(v, kind)}</text>')
+        parts.append(f'<text class="fin-xlab" x="{x:.1f}" y="{CH_H - 3:.1f}">{lab}</text>')
+
+    return (f'<svg class="fin-chart" viewBox="0 0 {CH_W:.0f} {CH_H:.0f}" '
+            f'preserveAspectRatio="xMidYMid meet" role="img">' + "".join(parts) + "</svg>")
 
 
-def fin_metric(label, vals, labs, fmt, chg_html):
-    cur = vals[-1]
+def fin_metric(label, vals, labs, fmt, chg_html, kind="money", chg_label="전년 동기 대비"):
+    cur = vals[-1] if vals else None
     val_html = (f'<div class="fin-mval">{fmt(cur)}</div>' if cur is not None
                 else '<div class="fin-mval needchk">확인 필요</div>')
     return ('            <div class="fin-metric">\n'
             f'              <div class="fin-mlabel">{label}</div>\n'
             f'              {val_html}\n'
-            f'              <div class="fin-mchg">전년 동기 대비 {chg_html}</div>\n'
-            f'              <div class="fin-bars">{fin_bars(vals, labs, fmt)}</div>\n'
+            f'              <div class="fin-mchg">{chg_label} {chg_html}</div>\n'
+            f'              {fin_chart(vals, labs, fmt, kind)}\n'
             '            </div>')
 
 
-def fin_item(name, ticker, logo, series):
+def yoy(vals):
+    """전년 동기(4분기 전) 대비 증감률. 5개 분기가 없거나 값이 비면 None."""
+    if len(vals) < 5 or vals[-1] is None or vals[-5] is None or not vals[-5]:
+        return None
+    return (vals[-1] / vals[-5] - 1) * 100
+
+
+def fin_item(name, ticker, logo, series, capex):
+    """capex는 fetch_capex 결과([(분기라벨, 금액)]) 또는 None."""
     labs = [q for q, _, _ in series]
     revs = [r for _, r, _ in series]
     ops = [o for _, _, o in series]
     mgs = [o / r * 100 for _, r, o in series]
 
-    def yoy(vals):
-        # 4분기 전과 비교한다. 데이터가 5개 미만이면 계산하지 않는다.
-        if len(vals) < 5:
-            return None
-        base = vals[-5]
-        return (vals[-1] / base - 1) * 100 if base else None
-
     mg_pp = (mgs[-1] - mgs[-5]) if len(mgs) >= 5 else None
+
+    # CAPEX는 현금흐름표라 분기 수가 손익계산서와 다를 수 있다.
+    # 분기 라벨을 열쇠로 맞춰 붙이고, 없는 분기는 None으로 둔다(0으로 채우지 않는다).
+    if capex:
+        cmap = dict(capex)
+        caps = [cmap.get(q) for q in labs]
+        cap_chg = pct_span(yoy(caps))
+    else:
+        caps = [None] * len(labs)
+        cap_chg = '<span class="needchk">확인 필요</span>'
 
     logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
                  f"onerror=\"this.style.display='none'\">")
@@ -566,7 +571,9 @@ def fin_item(name, ticker, logo, series):
         '            <div class="fin-metrics">\n'
         + fin_metric("매출", revs, labs, bil, pct_span(yoy(revs))) + "\n"
         + fin_metric("영업이익", ops, labs, bil, pct_span(yoy(ops))) + "\n"
-        + fin_metric("영업이익률", mgs, labs, lambda v: f"{v:.1f}%", pp_span(mg_pp)) + "\n"
+        + fin_metric("영업이익률", mgs, labs, lambda v: f"{v:.1f}%",
+                     pp_span(mg_pp), kind="pct") + "\n"
+        + fin_metric("설비투자(CAPEX)", caps, labs, bil, cap_chg) + "\n"
         '            </div>\n'
         '          </div>'
     )
@@ -583,15 +590,22 @@ def fin_item_fail(name, ticker, logo, why):
 
 
 def build_fin():
-    items, ok = [], 0
+    items, ok, cok = [], 0, 0
     for name, ticker, logo in M7:
+        # CAPEX는 따로 받는다. 이쪽이 실패해도 매출·영업이익은 그대로 보여준다.
         try:
-            items.append(fin_item(name, ticker, logo, fetch_fin(ticker)))
+            capex = fetch_capex(ticker)
+            cok += 1
+        except Exception as e:
+            print(f"  [warn] CAPEX {ticker}: {e}", file=sys.stderr)
+            capex = None
+        try:
+            items.append(fin_item(name, ticker, logo, fetch_fin(ticker), capex))
             ok += 1
         except Exception as e:
             print(f"  [warn] 재무 {ticker}: {e}", file=sys.stderr)
             items.append(fin_item_fail(name, ticker, logo, "분기 손익계산서를 못 받아왔습니다"))
-    print(f"  fin {ok}/{len(M7)}")
+    print(f"  fin {ok}/{len(M7)} (capex {cok}/{len(M7)})")
     return '        <div class="fin-grid">\n' + "\n".join(items) + "\n        </div>"
 
 # ------------------------------------------------------------- 주요 지수 카드
@@ -606,6 +620,7 @@ INDEXES = [
     ("코스닥", "KOSDAQ", "^KQ11", "KRX:KOSDAQ", 2),
     ("원달러 환율", "USDKRW", "KRW=X", "FX_IDC:USDKRW", 2),
     ("미 10년물 금리", "US10Y", "^TNX", "TVC:US10Y", 3),
+    ("달러 인덱스", "DXY", "DX-Y.NYB", "TVC:DXY", 2),
 ]
 
 
@@ -1024,9 +1039,6 @@ def main(html_path):
     if i != -1 and j != -1:
         html = html[: i + len(em_s)] + miss_txt + html[j:]
 
-    print("fetching big-tech capex...")
-    html, capex_ok = splice(html, "CAPEX", build_capex())
-
     print("fetching big-tech financials...")
     html, fin_ok = splice(html, "FIN", build_fin())
 
@@ -1046,7 +1058,6 @@ def main(html_path):
           f"earn={'ok' if ecal_ok and elist_ok else 'MARKER MISSING'}({len(earn_rows)}건), "
           f"fng={'ok' if fng_ok else 'MARKER MISSING'}, "
           f"yield={'ok' if yld_ok else 'MARKER MISSING'}, "
-          f"capex={'ok' if capex_ok else 'MARKER MISSING'}, "
           f"fin={'ok' if fin_ok else 'MARKER MISSING'}, date={today}")
 
 
