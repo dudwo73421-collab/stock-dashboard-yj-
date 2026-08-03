@@ -209,7 +209,10 @@
     .cal-chip { font-size: 9px; padding: 1px 3px; }
   }
   /* ===== 휴대폰: 보조지표 표를 종목별 카드로 재배치 (옆으로 스크롤 없음) ===== */
-  @media (max-width: 1100px) { .fin-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 1400px) { .fin-metrics,
+    .fin-cmetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 1100px) { .fin-metrics,
+    .fin-cmetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 700px) {
     .supp-table-wrap { overflow-x: visible; padding: 0 12px 12px; }
     .supp-table { display: block; table-layout: auto; font-size: 13px; }
@@ -434,7 +437,7 @@
   .fin-head { font-size: 13px; font-weight: 700; display: flex; align-items: center; }
   .fin-q { margin-left: auto; font-size: 10.5px; font-weight: 600; color: var(--text-muted); }
   .fin-fail { font-size: 13px; font-weight: 700; margin-top: 6px; }
-  .fin-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  .fin-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px; margin-top: 9px; }
   .fin-metric { min-width: 0; }
   .fin-mlabel { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
@@ -455,6 +458,15 @@
   .fin-plab.is-last { fill: var(--up); }
   .fin-xlab { font-size: 7.5px; fill: var(--text-muted); text-anchor: middle; }
   .fin-nochart { font-size: 11px; margin-top: 8px; }
+  /* 클라우드(데이터센터 대여) 부문 — 손으로 관리하는 값이라 따로 묶어 둔다 */
+  .fin-cloud { margin-top: 12px; padding-top: 11px; border-top: 1px dashed var(--border); }
+  .fin-cloud-head { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+  /* 위 지표와 같은 폭으로 그린다. 차트 크기가 들쭉날쭉하면 비교가 어렵다 */
+  .fin-cmetrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px; margin-top: 8px; }
+  .fin-cloud-note { font-size: 10.5px; line-height: 1.6; color: var(--text-muted);
+    margin-top: 7px; }
+  .fin-cloud-note a { color: var(--text-secondary); }
   /* 어닝콜 발언 */
   .call-item { padding: 12px 16px; border-top: 1px solid var(--border); }
   .call-item:first-of-type { border-top: 0; }
@@ -473,7 +485,7 @@
   .call-tag.quote { background: rgba(227,73,72,0.13); color: var(--up); }
   @media (max-width: 700px) {
     .capex-grid { grid-template-columns: 1fr; gap: 20px; padding: 4px 12px 10px; }
-    .fin-metrics { grid-template-columns: 1fr; gap: 14px; }
+    .fin-metrics, .fin-cmetrics { grid-template-columns: 1fr; gap: 14px; }
     .capex-bars { height: 92px; }
     .capex-xlab { font-size: 10px; }
     .call-item { padding: 12px; }
@@ -487,7 +499,7 @@
   <div class="inner">
   <header class="top">
     <h1>미국증시 실시간 대시보드</h1>
-    <div class="sub">TradingView 실시간 시세 위젯 기반 · 열 때마다 자동으로 최신 데이터가 표시됩니다 · 무료 위젯 특성상 <b>약 15~20분 지연 시세</b>일 수 있음 · 보조지표 기준: <b><!--SUPPDATE-->2026-08-04 (자동)<!--/SUPPDATE--></b> <span class="tz-note">모든 날짜·시각은 한국시간(KST) 기준</span></div>
+    <div class="sub">TradingView 실시간 시세 위젯 기반 · 열 때마다 자동으로 최신 데이터가 표시됩니다 · 무료 위젯 특성상 <b>약 15~20분 지연 시세</b>일 수 있음 · 보조지표 기준: <b><!--SUPPDATE-->2026-07-26 (수동)<!--/SUPPDATE--></b> <span class="tz-note">모든 날짜·시각은 한국시간(KST) 기준</span></div>
   </header>
 
   <!-- Ticker Tape: always-visible scrolling banner -->
@@ -536,8 +548,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">S&amp;P500<span class="idx-sym">SPX</span></div>
-              <div class="idx-val">7,584.23</div>
-              <div class="idx-chg up">+1.26%<span class="idx-abs">+94.51</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="FOREXCOM:SPXUSD"></div>
@@ -545,8 +557,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">나스닥 종합<span class="idx-sym">IXIC</span></div>
-              <div class="idx-val">25,872.37</div>
-              <div class="idx-chg up">+1.96%<span class="idx-abs">+498.52</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="NASDAQ:IXIC"></div>
@@ -554,8 +566,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">다우존스<span class="idx-sym">DJI</span></div>
-              <div class="idx-val">53,011.13</div>
-              <div class="idx-chg up">+1.00%<span class="idx-abs">+526.10</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="FOREXCOM:DJI"></div>
@@ -563,8 +575,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">VIX 공포지수<span class="idx-sym">VIX</span></div>
-              <div class="idx-val">15.65</div>
-              <div class="idx-chg down">-2.13%<span class="idx-abs">-0.34</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="TVC:VIX"></div>
@@ -572,8 +584,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">코스피<span class="idx-sym">KOSPI</span></div>
-              <div class="idx-val">6,595.45</div>
-              <div class="idx-chg up">+17.91%<span class="idx-abs">+1,001.89</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="KRX:KOSPI"></div>
@@ -581,8 +593,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">코스닥<span class="idx-sym">KOSDAQ</span></div>
-              <div class="idx-val">719.76</div>
-              <div class="idx-chg up">+11.63%<span class="idx-abs">+74.98</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="KRX:KOSDAQ"></div>
@@ -590,8 +602,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">원달러 환율<span class="idx-sym">USDKRW</span></div>
-              <div class="idx-val">1,429.48</div>
-              <div class="idx-chg up">+0.63%<span class="idx-abs">+8.88</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="FX_IDC:USDKRW"></div>
@@ -599,8 +611,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">미 10년물 금리<span class="idx-sym">US10Y</span></div>
-              <div class="idx-val">4.684</div>
-              <div class="idx-chg down">-1.29%<span class="idx-abs">-0.061</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="TVC:US10Y"></div>
@@ -608,8 +620,8 @@
           <details class="idx-card">
             <summary class="idx-sum">
               <div class="idx-name">달러 인덱스<span class="idx-sym">DXY</span></div>
-              <div class="idx-val">99.94</div>
-              <div class="idx-chg up">+0.14%<span class="idx-abs">+0.14</span></div>
+              <div class="idx-val needchk">확인 필요</div>
+              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>
               <span class="idx-more">차트 보기</span>
             </summary>
             <div class="idx-chart" data-tvsym="TVC:DXY"></div>
@@ -624,25 +636,25 @@
       <!--FNG:START-->
         <div class="fng-grid">
           <div class="fng-item">
-            <div class="fng-head"><span class="fng-label">미국 주식 (CNN)</span><span class="fng-rating needchk">확인 필요</span></div>
-            <div class="fng-score needchk">확인 필요</div>
-            <div class="fng-bar"></div>
+            <div class="fng-head"><span class="fng-label">미국 주식 (CNN)</span><span class="fng-rating fng-fear">공포</span></div>
+            <div class="fng-score">42</div>
+            <div class="fng-bar"><div class="fng-mark" style="left:42%"></div></div>
             <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
-            <div class="fng-prev">CNN에서 값을 받아오지 못했습니다</div>
+            <div class="fng-prev">2026-07-31 미국장 마감 기준<br>전일 39 · 1주 전 41 · 1달 전 30 · 1년 전 64</div>
           </div>
           <div class="fng-item">
-            <div class="fng-head"><span class="fng-label">암호화폐 (alternative.me)</span><span class="fng-rating fng-fear">공포</span></div>
-            <div class="fng-score">28</div>
-            <div class="fng-bar"><div class="fng-mark" style="left:28%"></div></div>
-            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
-            <div class="fng-prev">2026-08-03 기준 (매일 09:00 KST 갱신)<br>전일 27 · 1주 전 30</div>
-          </div>
-          <div class="fng-item">
-            <div class="fng-head"><span class="fng-label">한국 주식 (자체 산출)</span><span class="fng-rating fng-fear">공포</span></div>
+            <div class="fng-head"><span class="fng-label">암호화폐 (alternative.me)</span><span class="fng-rating fng-fear">극도의 공포</span></div>
             <div class="fng-score">25</div>
             <div class="fng-bar"><div class="fng-mark" style="left:25%"></div></div>
             <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
-            <div class="fng-prev">2026-07-31 코스피 종가 기준<br>모멘텀 43 · 변동성 0 · 주가강도 58 · 안전자산 선호 0<br>공식 지수가 아니라 공개 데이터로 직접 계산한 값입니다</div>
+            <div class="fng-prev">2026-07-31 기준 (매일 09:00 KST 갱신)<br>전일 확인 필요 · 1주 전 확인 필요</div>
+          </div>
+          <div class="fng-item">
+            <div class="fng-head"><span class="fng-label">한국 주식 (자체 산출)</span><span class="fng-rating needchk">확인 필요</span></div>
+            <div class="fng-score needchk">확인 필요</div>
+            <div class="fng-bar"></div>
+            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
+            <div class="fng-prev">계산에 필요한 데이터를 못 받아왔습니다</div>
           </div>
         </div>
       <!--FNG:END-->
@@ -766,56 +778,56 @@
         <thead><tr><th>종목</th><th>일간</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th></tr></thead>
         <tbody>
           <!--SUPP:us30:START-->
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/nvidia.com" onerror="this.style.display='none'">엔비디아<span class="supp-ticker">NVDA</span></td><td class="up">+3.05%</td><td class="down">-12.14%</td><td class="up">+5.28%</td><td class="up">+11.06%</td><td class="up">3일 상승</td><td>53.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/apple.com" onerror="this.style.display='none'">애플<span class="supp-ticker">AAPL</span></td><td class="down">-1.46%</td><td class="down">-10.49%</td><td class="down">-9.65%</td><td class="up">+12.18%</td><td class="down">4일 하락</td><td>40.8</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/abc.xyz" onerror="this.style.display='none'">알파벳<span class="supp-ticker">GOOGL</span></td><td class="up">+5.18%</td><td class="down">-6.91%</td><td class="up">+14.71%</td><td class="up">+19.83%</td><td class="up">2일 상승</td><td>61.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/microsoft.com" onerror="this.style.display='none'">마이크로소프트<span class="supp-ticker">MSFT</span></td><td class="up">+4.68%</td><td class="down">-9.68%</td><td class="up">+25.03%</td><td class="up">+1.04%</td><td class="up">3일 상승</td><td>78.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/amazon.com" onerror="this.style.display='none'">아마존<span class="supp-ticker">AMZN</span></td><td class="up">+4.82%</td><td class="needchk">+0.00%</td><td class="up">+23.03%</td><td class="up">+23.33%</td><td class="up">3일 상승</td><td>72.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/tsmc.com" onerror="this.style.display='none'">TSMC<span class="supp-ticker">TSM</span></td><td class="down">-0.13%</td><td class="down">-15.47%</td><td class="up">+1.16%</td><td class="up">+33.53%</td><td class="down">1일 하락</td><td>46.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/broadcom.com" onerror="this.style.display='none'">브로드컴<span class="supp-ticker">AVGO</span></td><td class="down">-0.20%</td><td class="down">-19.20%</td><td class="up">+1.38%</td><td class="up">+12.66%</td><td class="down">1일 하락</td><td>51.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/spacex.com" onerror="this.style.display='none'">스페이스X<span class="supp-ticker">SPCX</span></td><td class="up">+3.05%</td><td class="down">-47.17%</td><td class="down">-1.60%</td><td class="needchk">확인 필요</td><td class="up">1일 상승</td><td>32.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/meta.com" onerror="this.style.display='none'">메타<span class="supp-ticker">META</span></td><td class="up">+6.47%</td><td class="down">-24.72%</td><td class="down">-0.19%</td><td class="down">-10.04%</td><td class="up">2일 상승</td><td>47.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/tesla.com" onerror="this.style.display='none'">테슬라<span class="supp-ticker">TSLA</span></td><td class="up">+3.85%</td><td class="down">-34.02%</td><td class="up">+4.52%</td><td class="down">-28.13%</td><td class="up">3일 상승</td><td>37.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/berkshirehathaway.com" onerror="this.style.display='none'">버크셔해서웨이<span class="supp-ticker">BRK.B</span></td><td class="up">+0.14%</td><td class="down">-0.30%</td><td class="up">+3.03%</td><td class="up">+1.91%</td><td class="up">3일 상승</td><td>66.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lilly.com" onerror="this.style.display='none'">일라이릴리<span class="supp-ticker">LLY</span></td><td class="down">-2.73%</td><td class="down">-9.56%</td><td class="down">-6.69%</td><td class="up">+4.33%</td><td class="down">4일 하락</td><td>40.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/micron.com" onerror="this.style.display='none'">마이크론<span class="supp-ticker">MU</span></td><td class="down">-0.61%</td><td class="down">-32.59%</td><td class="down">-9.13%</td><td class="up">+186.76%</td><td class="down">2일 하락</td><td>43.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/jpmorganchase.com" onerror="this.style.display='none'">JP모건<span class="supp-ticker">JPM</span></td><td class="up">+0.15%</td><td class="down">-1.39%</td><td class="down">-1.09%</td><td class="up">+10.90%</td><td class="up">3일 상승</td><td>61.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/walmart.com" onerror="this.style.display='none'">월마트<span class="supp-ticker">WMT</span></td><td class="down">-0.71%</td><td class="down">-17.72%</td><td class="down">-1.19%</td><td class="down">-0.50%</td><td class="down">1일 하락</td><td>42.7</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/amd.com" onerror="this.style.display='none'">AMD<span class="supp-ticker">AMD</span></td><td class="up">+1.21%</td><td class="down">-17.05%</td><td class="down">-2.64%</td><td class="up">+125.01%</td><td class="up">1일 상승</td><td>46.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/asml.com" onerror="this.style.display='none'">ASML<span class="supp-ticker">ASML</span></td><td class="up">+0.63%</td><td class="down">-17.50%</td><td class="down">-0.84%</td><td class="up">+53.95%</td><td class="up">1일 상승</td><td>43.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/visa.com" onerror="this.style.display='none'">비자<span class="supp-ticker">V</span></td><td class="down">-0.24%</td><td class="down">-0.95%</td><td class="up">+0.75%</td><td class="up">+4.57%</td><td class="down">3일 하락</td><td>62.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/exxonmobil.com" onerror="this.style.display='none'">엑슨모빌<span class="supp-ticker">XOM</span></td><td class="down">-0.41%</td><td class="down">-9.10%</td><td class="up">+0.03%</td><td class="up">+30.38%</td><td class="down">2일 하락</td><td>61.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/jnj.com" onerror="this.style.display='none'">존슨앤존슨<span class="supp-ticker">JNJ</span></td><td class="down">-1.24%</td><td class="down">-5.26%</td><td class="down">-4.80%</td><td class="up">+23.70%</td><td class="down">1일 하락</td><td>48.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/mastercard.com" onerror="this.style.display='none'">마스터카드<span class="supp-ticker">MA</span></td><td class="down">-0.26%</td><td class="down">-3.97%</td><td class="up">+3.61%</td><td class="up">+0.62%</td><td class="down">2일 하락</td><td>68.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/intel.com" onerror="this.style.display='none'">인텔<span class="supp-ticker">INTC</span></td><td class="up">+0.30%</td><td class="down">-35.81%</td><td class="down">-1.31%</td><td class="up">+145.18%</td><td class="up">1일 상승</td><td>40.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/abbvie.com" onerror="this.style.display='none'">애브비<span class="supp-ticker">ABBV</span></td><td class="down">-1.94%</td><td class="down">-6.54%</td><td class="down">-4.22%</td><td class="up">+10.24%</td><td class="down">3일 하락</td><td>46.8</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/cisco.com" onerror="this.style.display='none'">시스코<span class="supp-ticker">CSCO</span></td><td class="down">-0.64%</td><td class="down">-11.01%</td><td class="up">+0.59%</td><td class="up">+51.80%</td><td class="down">1일 하락</td><td>51.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/bankofamerica.com" onerror="this.style.display='none'">뱅크오브아메리카<span class="supp-ticker">BAC</span></td><td class="up">+0.22%</td><td class="down">-0.85%</td><td class="down">-0.07%</td><td class="up">+14.11%</td><td class="up">3일 상승</td><td>63.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/appliedmaterials.com" onerror="this.style.display='none'">어플라이드머티리얼즈<span class="supp-ticker">AMAT</span></td><td class="up">+1.18%</td><td class="down">-28.96%</td><td class="down">-0.63%</td><td class="up">+100.37%</td><td class="up">3일 상승</td><td>46.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/costco.com" onerror="this.style.display='none'">코스트코<span class="supp-ticker">COST</span></td><td class="down">-0.14%</td><td class="down">-13.00%</td><td class="down">-0.11%</td><td class="up">+10.72%</td><td class="down">3일 하락</td><td>51.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/caterpillar.com" onerror="this.style.display='none'">캐터필러<span class="supp-ticker">CAT</span></td><td class="up">+1.09%</td><td class="down">-22.51%</td><td class="down">-5.68%</td><td class="up">+44.66%</td><td class="up">3일 상승</td><td>38.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/chevron.com" onerror="this.style.display='none'">쉐브론<span class="supp-ticker">CVX</span></td><td class="down">-1.07%</td><td class="down">-6.94%</td><td class="up">+2.48%</td><td class="up">+30.19%</td><td class="down">1일 하락</td><td>63.0</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/unitedhealthgroup.com" onerror="this.style.display='none'">유나이티드헬스<span class="supp-ticker">UNH</span></td><td class="up">+0.44%</td><td class="down">-4.61%</td><td class="down">-0.34%</td><td class="up">+27.80%</td><td class="up">1일 상승</td><td>48.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lamresearch.com" onerror="this.style.display='none'">램리서치<span class="supp-ticker">LRCX</span></td><td class="down">-0.24%</td><td class="down">-32.54%</td><td class="up">+0.25%</td><td class="up">+71.10%</td><td class="down">2일 하락</td><td>43.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/geaerospace.com" onerror="this.style.display='none'">GE에어로스페이스<span class="supp-ticker">GE</span></td><td class="up">+1.08%</td><td class="down">-3.88%</td><td class="up">+0.65%</td><td class="up">+18.48%</td><td class="up">3일 상승</td><td>57.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hsbc.com" onerror="this.style.display='none'">HSBC<span class="supp-ticker">HSBC</span></td><td class="up">+1.05%</td><td class="needchk">+0.00%</td><td class="up">+3.43%</td><td class="up">+41.33%</td><td class="up">1일 상승</td><td>69.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/coca-colacompany.com" onerror="this.style.display='none'">코카콜라<span class="supp-ticker">KO</span></td><td class="down">-0.69%</td><td class="down">-2.35%</td><td class="up">+3.47%</td><td class="up">+26.10%</td><td class="down">3일 하락</td><td>60.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/pg.com" onerror="this.style.display='none'">P&amp;G<span class="supp-ticker">PG</span></td><td class="up">+0.57%</td><td class="down">-11.78%</td><td class="down">-2.23%</td><td class="up">+3.65%</td><td class="up">2일 상승</td><td>46.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/morganstanley.com" onerror="this.style.display='none'">모건스탠리<span class="supp-ticker">MS</span></td><td class="up">+0.10%</td><td class="down">-7.34%</td><td class="down">-1.29%</td><td class="up">+20.60%</td><td class="up">3일 상승</td><td>47.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/homedepot.com" onerror="this.style.display='none'">홈디포<span class="supp-ticker">HD</span></td><td class="up">+0.94%</td><td class="down">-19.22%</td><td class="down">-0.30%</td><td class="down">-1.23%</td><td class="up">1일 상승</td><td>49.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/oracle.com" onerror="this.style.display='none'">오라클<span class="supp-ticker">ORCL</span></td><td class="up">+6.16%</td><td class="down">-57.53%</td><td class="up">+14.99%</td><td class="down">-28.58%</td><td class="up">3일 상승</td><td>50.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/goldmansachs.com" onerror="this.style.display='none'">골드만삭스<span class="supp-ticker">GS</span></td><td class="down">-0.11%</td><td class="down">-11.70%</td><td class="down">-2.95%</td><td class="up">+16.85%</td><td class="down">2일 하락</td><td>44.7</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/merck.com" onerror="this.style.display='none'">머크<span class="supp-ticker">MRK</span></td><td class="down">-2.06%</td><td class="down">-3.26%</td><td class="down">-2.48%</td><td class="up">+22.92%</td><td class="down">1일 하락</td><td>52.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/pmi.com" onerror="this.style.display='none'">필립모리스<span class="supp-ticker">PM</span></td><td class="down">-0.45%</td><td class="down">-5.10%</td><td class="down">-2.91%</td><td class="up">+20.48%</td><td class="down">4일 하락</td><td>52.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/novartis.com" onerror="this.style.display='none'">노바티스<span class="supp-ticker">NVS</span></td><td class="down">-1.67%</td><td class="down">-6.17%</td><td class="down">-1.64%</td><td class="up">+14.76%</td><td class="down">4일 하락</td><td>48.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/palantir.com" onerror="this.style.display='none'">팔란티어<span class="supp-ticker">PLTR</span></td><td class="up">+1.55%</td><td class="down">-39.68%</td><td class="down">-4.99%</td><td class="down">-29.69%</td><td class="up">2일 상승</td><td>46.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/netflix.com" onerror="this.style.display='none'">넷플릭스<span class="supp-ticker">NFLX</span></td><td class="up">+1.42%</td><td class="down">-42.43%</td><td class="up">+3.31%</td><td class="down">-22.43%</td><td class="up">1일 상승</td><td>48.0</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/rbc.com" onerror="this.style.display='none'">로열뱅크오브캐나다<span class="supp-ticker">RY</span></td><td class="up">+0.10%</td><td class="down">-3.16%</td><td class="up">+0.10%</td><td class="up">+24.60%</td><td class="up">1일 상승</td><td>54.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/rtx.com" onerror="this.style.display='none'">RTX<span class="supp-ticker">RTX</span></td><td class="up">+0.16%</td><td class="down">-1.37%</td><td class="down">-1.30%</td><td class="up">+18.43%</td><td class="up">2일 상승</td><td>70.7</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/dell.com" onerror="this.style.display='none'">델테크놀로지스<span class="supp-ticker">DELL</span></td><td class="up">+3.05%</td><td class="down">-10.20%</td><td class="down">-2.15%</td><td class="up">+234.88%</td><td class="up">3일 상승</td><td>52.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/arm.com" onerror="this.style.display='none'">ARM<span class="supp-ticker">ARM</span></td><td class="down">-1.12%</td><td class="down">-46.07%</td><td class="down">-11.01%</td><td class="up">+116.81%</td><td class="down">2일 하락</td><td>37.0</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kla.com" onerror="this.style.display='none'">KLA<span class="supp-ticker">KLAC</span></td><td class="down">-1.31%</td><td class="down">-40.20%</td><td class="down">-11.28%</td><td class="up">+48.87%</td><td class="down">1일 하락</td><td>37.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/gevernova.com" onerror="this.style.display='none'">GE버노바<span class="supp-ticker">GEV</span></td><td class="up">+0.88%</td><td class="down">-14.96%</td><td class="up">+0.25%</td><td class="up">+53.14%</td><td class="up">3일 상승</td><td>47.4</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/nvidia.com" onerror="this.style.display='none'">엔비디아<span class="supp-ticker">NVDA</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/apple.com" onerror="this.style.display='none'">애플<span class="supp-ticker">AAPL</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/abc.xyz" onerror="this.style.display='none'">알파벳<span class="supp-ticker">GOOGL</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/microsoft.com" onerror="this.style.display='none'">마이크로소프트<span class="supp-ticker">MSFT</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/amazon.com" onerror="this.style.display='none'">아마존<span class="supp-ticker">AMZN</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/tsmc.com" onerror="this.style.display='none'">TSMC<span class="supp-ticker">TSM</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/broadcom.com" onerror="this.style.display='none'">브로드컴<span class="supp-ticker">AVGO</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/spacex.com" onerror="this.style.display='none'">스페이스X<span class="supp-ticker">SPCX</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/meta.com" onerror="this.style.display='none'">메타<span class="supp-ticker">META</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/tesla.com" onerror="this.style.display='none'">테슬라<span class="supp-ticker">TSLA</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/berkshirehathaway.com" onerror="this.style.display='none'">버크셔해서웨이<span class="supp-ticker">BRK.B</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lilly.com" onerror="this.style.display='none'">일라이릴리<span class="supp-ticker">LLY</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/micron.com" onerror="this.style.display='none'">마이크론<span class="supp-ticker">MU</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/jpmorganchase.com" onerror="this.style.display='none'">JP모건<span class="supp-ticker">JPM</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/walmart.com" onerror="this.style.display='none'">월마트<span class="supp-ticker">WMT</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/amd.com" onerror="this.style.display='none'">AMD<span class="supp-ticker">AMD</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/asml.com" onerror="this.style.display='none'">ASML<span class="supp-ticker">ASML</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/visa.com" onerror="this.style.display='none'">비자<span class="supp-ticker">V</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/exxonmobil.com" onerror="this.style.display='none'">엑슨모빌<span class="supp-ticker">XOM</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/jnj.com" onerror="this.style.display='none'">존슨앤존슨<span class="supp-ticker">JNJ</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/mastercard.com" onerror="this.style.display='none'">마스터카드<span class="supp-ticker">MA</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/intel.com" onerror="this.style.display='none'">인텔<span class="supp-ticker">INTC</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/abbvie.com" onerror="this.style.display='none'">애브비<span class="supp-ticker">ABBV</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/cisco.com" onerror="this.style.display='none'">시스코<span class="supp-ticker">CSCO</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/bankofamerica.com" onerror="this.style.display='none'">뱅크오브아메리카<span class="supp-ticker">BAC</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/appliedmaterials.com" onerror="this.style.display='none'">어플라이드머티리얼즈<span class="supp-ticker">AMAT</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/costco.com" onerror="this.style.display='none'">코스트코<span class="supp-ticker">COST</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/caterpillar.com" onerror="this.style.display='none'">캐터필러<span class="supp-ticker">CAT</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/chevron.com" onerror="this.style.display='none'">쉐브론<span class="supp-ticker">CVX</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/unitedhealthgroup.com" onerror="this.style.display='none'">유나이티드헬스<span class="supp-ticker">UNH</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lamresearch.com" onerror="this.style.display='none'">램리서치<span class="supp-ticker">LRCX</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/geaerospace.com" onerror="this.style.display='none'">GE에어로스페이스<span class="supp-ticker">GE</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hsbc.com" onerror="this.style.display='none'">HSBC<span class="supp-ticker">HSBC</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/coca-colacompany.com" onerror="this.style.display='none'">코카콜라<span class="supp-ticker">KO</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/pg.com" onerror="this.style.display='none'">P&amp;G<span class="supp-ticker">PG</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/morganstanley.com" onerror="this.style.display='none'">모건스탠리<span class="supp-ticker">MS</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/homedepot.com" onerror="this.style.display='none'">홈디포<span class="supp-ticker">HD</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/oracle.com" onerror="this.style.display='none'">오라클<span class="supp-ticker">ORCL</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/goldmansachs.com" onerror="this.style.display='none'">골드만삭스<span class="supp-ticker">GS</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/merck.com" onerror="this.style.display='none'">머크<span class="supp-ticker">MRK</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/pmi.com" onerror="this.style.display='none'">필립모리스<span class="supp-ticker">PM</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/novartis.com" onerror="this.style.display='none'">노바티스<span class="supp-ticker">NVS</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/palantir.com" onerror="this.style.display='none'">팔란티어<span class="supp-ticker">PLTR</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/netflix.com" onerror="this.style.display='none'">넷플릭스<span class="supp-ticker">NFLX</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/rbc.com" onerror="this.style.display='none'">로열뱅크오브캐나다<span class="supp-ticker">RY</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/rtx.com" onerror="this.style.display='none'">RTX<span class="supp-ticker">RTX</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/dell.com" onerror="this.style.display='none'">델테크놀로지스<span class="supp-ticker">DELL</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/arm.com" onerror="this.style.display='none'">ARM<span class="supp-ticker">ARM</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kla.com" onerror="this.style.display='none'">KLA<span class="supp-ticker">KLAC</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/gevernova.com" onerror="this.style.display='none'">GE버노바<span class="supp-ticker">GEV</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
           <!--SUPP:us30:END-->
         </tbody>
       </table>
@@ -880,26 +892,26 @@
         <thead><tr><th>종목</th><th>일간</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th></tr></thead>
         <tbody>
           <!--SUPP:kr10:START-->
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsung.com" onerror="this.style.display='none'">삼성전자<span class="supp-ticker">005930</span></td><td class="up">+26.81%</td><td class="down">-27.51%</td><td class="up">+5.21%</td><td class="up">+119.63%</td><td class="up">1일 상승</td><td>48.8</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/skhynix.com" onerror="this.style.display='none'">SK하이닉스<span class="supp-ticker">000660</span></td><td class="up">+29.95%</td><td class="down">-41.14%</td><td class="down">-2.33%</td><td class="up">+164.43%</td><td class="up">1일 상승</td><td>44.7</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/sksquare.com" onerror="this.style.display='none'">SK스퀘어<span class="supp-ticker">402340</span></td><td class="up">+29.91%</td><td class="down">-47.31%</td><td class="down">-6.40%</td><td class="up">+182.43%</td><td class="up">1일 상승</td><td>43.0</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hyundai.com" onerror="this.style.display='none'">현대차<span class="supp-ticker">005380</span></td><td class="up">+10.54%</td><td class="down">-48.27%</td><td class="down">-3.24%</td><td class="up">+31.92%</td><td class="up">1일 상승</td><td>37.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungsem.com" onerror="this.style.display='none'">삼성전기<span class="supp-ticker">009150</span></td><td class="up">+29.92%</td><td class="down">-49.69%</td><td class="down">-13.88%</td><td class="up">+347.84%</td><td class="up">1일 상승</td><td>40.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lgensol.com" onerror="this.style.display='none'">LG에너지솔루션<span class="supp-ticker">373220</span></td><td class="up">+2.50%</td><td class="down">-36.19%</td><td class="down">-0.46%</td><td class="down">-10.99%</td><td class="up">2일 상승</td><td>46.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungbiologics.com" onerror="this.style.display='none'">삼성바이오로직스<span class="supp-ticker">207940</span></td><td class="down">-2.75%</td><td class="down">-24.43%</td><td class="down">-2.17%</td><td class="down">-12.39%</td><td class="down">1일 하락</td><td>55.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kbfg.com" onerror="this.style.display='none'">KB금융<span class="supp-ticker">105560</span></td><td class="up">+0.66%</td><td class="down">-9.51%</td><td class="down">-1.75%</td><td class="up">+37.42%</td><td class="up">2일 상승</td><td>49.7</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsunglife.com" onerror="this.style.display='none'">삼성생명<span class="supp-ticker">032830</span></td><td class="up">+17.99%</td><td class="down">-37.32%</td><td class="down">-2.04%</td><td class="up">+97.65%</td><td class="up">1일 상승</td><td>45.3</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungcnt.com" onerror="this.style.display='none'">삼성물산<span class="supp-ticker">028260</span></td><td class="up">+19.56%</td><td class="down">-34.30%</td><td class="up">+2.78%</td><td class="up">+46.76%</td><td class="up">2일 상승</td><td>46.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kia.com" onerror="this.style.display='none'">기아<span class="supp-ticker">000270</span></td><td class="up">+9.19%</td><td class="down">-33.16%</td><td class="up">+1.07%</td><td class="up">+13.05%</td><td class="up">2일 상승</td><td>43.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hd.com" onerror="this.style.display='none'">HD현대중공업<span class="supp-ticker">329180</span></td><td class="up">+7.37%</td><td class="down">-35.44%</td><td class="down">-0.93%</td><td class="down">-4.86%</td><td class="up">2일 상승</td><td>43.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/shinhangroup.com" onerror="this.style.display='none'">신한지주<span class="supp-ticker">055550</span></td><td class="down">-0.10%</td><td class="down">-7.10%</td><td class="down">-2.83%</td><td class="up">+34.05%</td><td class="down">1일 하락</td><td>47.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hanwhaaerospace.com" onerror="this.style.display='none'">한화에어로스페이스<span class="supp-ticker">012450</span></td><td class="up">+6.01%</td><td class="down">-40.34%</td><td class="down">-6.33%</td><td class="down">-2.55%</td><td class="up">2일 상승</td><td>45.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/mobis.co.kr" onerror="this.style.display='none'">현대모비스<span class="supp-ticker">012330</span></td><td class="up">+6.97%</td><td class="down">-38.02%</td><td class="down">-1.24%</td><td class="up">+29.12%</td><td class="up">1일 상승</td><td>46.0</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/doosanenerbility.com" onerror="this.style.display='none'">두산에너빌리티<span class="supp-ticker">034020</span></td><td class="up">+11.46%</td><td class="down">-50.81%</td><td class="down">-6.93%</td><td class="down">-10.89%</td><td class="up">1일 상승</td><td>40.5</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/celltrion.com" onerror="this.style.display='none'">셀트리온<span class="supp-ticker">068270</span></td><td class="down">-1.74%</td><td class="down">-21.11%</td><td class="up">+5.12%</td><td class="up">+8.31%</td><td class="down">1일 하락</td><td>60.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/sk.com" onerror="this.style.display='none'">SK<span class="supp-ticker">034730</span></td><td class="up">+18.89%</td><td class="down">-35.08%</td><td class="down">-11.59%</td><td class="up">+121.59%</td><td class="up">1일 상승</td><td>45.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hanafn.com" onerror="this.style.display='none'">하나금융지주<span class="supp-ticker">086790</span></td><td class="up">+0.64%</td><td class="down">-8.33%</td><td class="down">-5.29%</td><td class="up">+35.93%</td><td class="up">2일 상승</td><td>48.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/navercorp.com" onerror="this.style.display='none'">네이버<span class="supp-ticker">035420</span></td><td class="up">+6.83%</td><td class="down">-26.76%</td><td class="up">+0.24%</td><td class="down">-13.33%</td><td class="up">1일 상승</td><td>51.7</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsung.com" onerror="this.style.display='none'">삼성전자<span class="supp-ticker">005930</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/skhynix.com" onerror="this.style.display='none'">SK하이닉스<span class="supp-ticker">000660</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/sksquare.com" onerror="this.style.display='none'">SK스퀘어<span class="supp-ticker">402340</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hyundai.com" onerror="this.style.display='none'">현대차<span class="supp-ticker">005380</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungsem.com" onerror="this.style.display='none'">삼성전기<span class="supp-ticker">009150</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/lgensol.com" onerror="this.style.display='none'">LG에너지솔루션<span class="supp-ticker">373220</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungbiologics.com" onerror="this.style.display='none'">삼성바이오로직스<span class="supp-ticker">207940</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kbfg.com" onerror="this.style.display='none'">KB금융<span class="supp-ticker">105560</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsunglife.com" onerror="this.style.display='none'">삼성생명<span class="supp-ticker">032830</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/samsungcnt.com" onerror="this.style.display='none'">삼성물산<span class="supp-ticker">028260</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/kia.com" onerror="this.style.display='none'">기아<span class="supp-ticker">000270</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hd.com" onerror="this.style.display='none'">HD현대중공업<span class="supp-ticker">329180</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/shinhangroup.com" onerror="this.style.display='none'">신한지주<span class="supp-ticker">055550</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hanwhaaerospace.com" onerror="this.style.display='none'">한화에어로스페이스<span class="supp-ticker">012450</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/mobis.co.kr" onerror="this.style.display='none'">현대모비스<span class="supp-ticker">012330</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/doosanenerbility.com" onerror="this.style.display='none'">두산에너빌리티<span class="supp-ticker">034020</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/celltrion.com" onerror="this.style.display='none'">셀트리온<span class="supp-ticker">068270</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/sk.com" onerror="this.style.display='none'">SK<span class="supp-ticker">034730</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/hanafn.com" onerror="this.style.display='none'">하나금융지주<span class="supp-ticker">086790</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/navercorp.com" onerror="this.style.display='none'">네이버<span class="supp-ticker">035420</span></td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td><td class="needchk">확인 필요</td></tr>
           <!--SUPP:kr10:END-->
         </tbody>
       </table>
@@ -964,22 +976,22 @@
         <thead><tr><th>종목</th><th>일간</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th></tr></thead>
         <tbody>
           <!--SUPP:etf:START-->
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VOO<span class="supp-ticker">VOO<span class="supp-dupe">동일 IVV·SPY</span></span></td><td class="up">+1.20%</td><td class="down">-0.20%</td><td class="up">+2.29%</td><td class="up">+11.48%</td><td class="up">3일 상승</td><td>58.8</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VTI<span class="supp-ticker">VTI</span></td><td class="up">+1.31%</td><td class="down">-0.06%</td><td class="up">+2.15%</td><td class="up">+11.94%</td><td class="up">3일 상승</td><td>58.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/invesco.com" onerror="this.style.display='none'">QQQ<span class="supp-ticker">QQQ<span class="supp-dupe">유사 VUG</span></span></td><td class="up">+1.44%</td><td class="down">-6.36%</td><td class="up">+2.32%</td><td class="up">+13.88%</td><td class="up">3일 상승</td><td>49.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VEA<span class="supp-ticker">VEA</span></td><td class="up">+0.33%</td><td class="down">-2.12%</td><td class="up">+1.22%</td><td class="up">+14.21%</td><td class="up">1일 상승</td><td>53.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ishares.com" onerror="this.style.display='none'">IEFA<span class="supp-ticker">IEFA</span></td><td class="up">+0.30%</td><td class="down">-0.34%</td><td class="up">+1.77%</td><td class="up">+11.95%</td><td class="up">1일 상승</td><td>58.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VTV<span class="supp-ticker">VTV</span></td><td class="up">+0.19%</td><td class="down">-1.17%</td><td class="down">-0.61%</td><td class="up">+16.59%</td><td class="up">1일 상승</td><td>56.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">BND<span class="supp-ticker">BND</span></td><td class="down">-0.12%</td><td class="down">-2.43%</td><td class="down">-0.43%</td><td class="down">-0.66%</td><td class="down">2일 하락</td><td>37.0</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLK<span class="supp-ticker">XLK</span></td><td class="up">+1.07%</td><td class="down">-10.48%</td><td class="up">+1.68%</td><td class="up">+23.40%</td><td class="up">1일 상승</td><td>48.7</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLF<span class="supp-ticker">XLF</span></td><td class="up">+0.25%</td><td class="down">-0.89%</td><td class="up">+0.36%</td><td class="up">+5.13%</td><td class="up">1일 상승</td><td>63.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLV<span class="supp-ticker">XLV</span></td><td class="down">-0.37%</td><td class="down">-3.17%</td><td class="down">-0.89%</td><td class="up">+5.51%</td><td class="down">4일 하락</td><td>53.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLY<span class="supp-ticker">XLY</span></td><td class="up">+1.76%</td><td class="down">-4.75%</td><td class="up">+6.58%</td><td class="down">-0.67%</td><td class="up">3일 상승</td><td>58.9</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLP<span class="supp-ticker">XLP</span></td><td class="down">-0.06%</td><td class="down">-4.38%</td><td class="down">-0.42%</td><td class="up">+10.80%</td><td class="down">3일 하락</td><td>51.4</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLE<span class="supp-ticker">XLE</span></td><td class="down">-0.81%</td><td class="down">-4.91%</td><td class="up">+1.21%</td><td class="up">+33.93%</td><td class="down">1일 하락</td><td>60.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLI<span class="supp-ticker">XLI</span></td><td class="up">+1.09%</td><td class="down">-2.03%</td><td class="down">-0.76%</td><td class="up">+17.82%</td><td class="up">3일 상승</td><td>54.2</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLB<span class="supp-ticker">XLB</span></td><td class="up">+0.52%</td><td class="down">-4.69%</td><td class="down">-1.36%</td><td class="up">+12.69%</td><td class="up">1일 상승</td><td>47.6</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLU<span class="supp-ticker">XLU</span></td><td class="up">+0.15%</td><td class="down">-5.70%</td><td class="down">-2.77%</td><td class="up">+5.44%</td><td class="up">1일 상승</td><td>41.5</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VOO<span class="supp-ticker">VOO<span class="supp-dupe">동일 IVV·SPY</span></span></td><td class="needchk">확인 필요</td><td class="down">-2.9%</td><td class="down">-0.59%</td><td class="up">+8.29%</td><td class="up">1일 상승</td><td>54.5</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VTI<span class="supp-ticker">VTI</span></td><td class="needchk">확인 필요</td><td class="down">-2.6%</td><td class="down">-0.60%</td><td class="up">+8.81%</td><td class="up">1일 상승</td><td>59.2</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/invesco.com" onerror="this.style.display='none'">QQQ<span class="supp-ticker">QQQ<span class="supp-dupe">유사 VUG</span></span></td><td class="needchk">확인 필요</td><td class="down">-8.6%</td><td class="down">-1.60%</td><td class="up">+11.38%</td><td class="down">3일 하락</td><td>45.7</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VEA<span class="supp-ticker">VEA</span></td><td class="needchk">확인 필요</td><td class="down">-4.8%</td><td class="up">+0.01%</td><td class="up">+11.59%</td><td class="down">2일 하락</td><td>37.3</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ishares.com" onerror="this.style.display='none'">IEFA<span class="supp-ticker">IEFA</span></td><td class="needchk">확인 필요</td><td class="down">-2.5%</td><td class="up">+0.09%</td><td class="up">+7.69%</td><td class="up">1일 상승</td><td>74.9</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">VTV<span class="supp-ticker">VTV</span></td><td class="needchk">확인 필요</td><td class="down">-0.5%</td><td class="up">+1.42%</td><td class="up">+15.72%</td><td class="up">4일 상승</td><td>42.8</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/vanguard.com" onerror="this.style.display='none'">BND<span class="supp-ticker">BND</span></td><td class="needchk">확인 필요</td><td class="down">-3.9%</td><td class="down">-0.75%</td><td class="down">-2.38%</td><td class="up">1일 상승</td><td>40.9</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLK<span class="supp-ticker">XLK</span></td><td class="needchk">확인 필요</td><td class="down">-11.5%</td><td class="up">+0.17%</td><td class="up">+22.16%</td><td class="down">3일 하락</td><td>58.5</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLF<span class="supp-ticker">XLF</span></td><td class="needchk">확인 필요</td><td class="down">-1.1%</td><td class="up">+0.09%</td><td class="up">+2.81%</td><td class="up">1일 상승</td><td>65.2</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLV<span class="supp-ticker">XLV</span></td><td class="needchk">확인 필요</td><td class="down">-1.8%</td><td class="up">+0.92%</td><td class="up">+5.02%</td><td class="up">2일 상승</td><td>72.7</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLY<span class="supp-ticker">XLY</span></td><td class="needchk">확인 필요</td><td class="down">-12.5%</td><td class="down">-5.22%</td><td class="down">-8.37%</td><td class="up">1일 상승</td><td>58.0</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLP<span class="supp-ticker">XLP</span></td><td class="needchk">확인 필요</td><td class="down">-6.7%</td><td class="down">-1.24%</td><td class="up">+8.30%</td><td class="up">1일 상승</td><td>52.6</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLE<span class="supp-ticker">XLE</span></td><td class="needchk">확인 필요</td><td class="down">-6.1%</td><td class="up">+3.36%</td><td class="up">+33.35%</td><td class="up">7일 상승<span class="needchk">*</span></td><td>32.1</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLI<span class="supp-ticker">XLI</span></td><td class="needchk">확인 필요</td><td class="down">-2.0%</td><td class="up">+1.81%</td><td class="up">+17.75%</td><td class="up">4일 상승</td><td>62.1</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLB<span class="supp-ticker">XLB</span></td><td class="needchk">확인 필요</td><td class="down">-5.3%</td><td class="up">+1.44%</td><td class="up">+13.03%</td><td class="up">1일 상승</td><td>67.7</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/ssga.com" onerror="this.style.display='none'">XLU<span class="supp-ticker">XLU</span></td><td class="needchk">확인 필요</td><td class="down">-3.2%</td><td class="up">+2.48%</td><td class="up">+8.43%</td><td class="up">3일 상승</td><td>55.2</td></tr>
           <!--SUPP:etf:END-->
         </tbody>
       </table>
@@ -1010,24 +1022,21 @@
         <div class="yld-grid">
           <div class="yld-item">
             <div class="yld-label">미 10년물</div>
-            <div class="yld-val">4.68%</div>
-            <div class="yld-sub"><span class="yld-chg down">전일 대비 -0.06%p</span></div>
-            <div class="yld-hist">1개월 전 4.49% · 1년 전 4.36%</div>
+            <div class="yld-val needchk">확인 필요</div>
+            <div class="yld-sub">값을 못 받아왔습니다</div>
           </div>
           <div class="yld-item">
             <div class="yld-label">미 2년물</div>
-            <div class="yld-val">4.29%</div>
-            <div class="yld-sub"><span class="yld-chg up">전일 대비 +0.16%p</span></div>
-            <div class="yld-hist">1개월 전 3.90% · 1년 전 3.89%</div>
+            <div class="yld-val needchk">확인 필요</div>
+            <div class="yld-sub">값을 못 받아왔습니다</div>
           </div>
           <div class="yld-item">
             <div class="yld-label">장단기 금리차 (10년 − 2년)</div>
-            <div class="yld-val">0.40%p</div>
-            <div class="yld-sub"><span class="yld-chg down">전일 대비 -0.22%p</span></div>
-            <div class="yld-hist">1개월 전 0.59%p · 1년 전 0.47%p</div>
+            <div class="yld-val needchk">확인 필요</div>
+            <div class="yld-sub">값을 못 받아왔습니다</div>
           </div>
         </div>
-        <div class="yld-state"><b class="up">역전 아님</b> — 10년물이 2년물보다 40bp 높습니다</div>
+        <div class="yld-state"><span class="needchk">두 금리를 다 받아와야 계산할 수 있습니다</span></div>
       <!--YIELD:END-->
       <div class="card-note">금리차가 마이너스면 장단기 금리 역전입니다. 1%p = 100bp.</div>
     </div>
@@ -1073,14 +1082,14 @@
         <thead><tr><th>자산</th><th>일간</th><th>고점대비</th><th>주간</th><th>26년 YTD</th><th>연속</th><th>RSI</th></tr></thead>
         <tbody>
           <!--SUPP:macro:START-->
-          <tr><td>VIX<span class="supp-ticker">VIX</span></td><td class="down">-2.13%</td><td class="down">-49.60%</td><td class="down">-16.18%</td><td class="up">+4.68%</td><td class="down">3일 하락</td><td>44.0</td></tr>
-          <tr><td>美10년물<span class="supp-ticker">US10Y</span></td><td class="down">-1.29%</td><td class="down">-1.29%</td><td class="up">+0.93%</td><td class="up">+12.52%</td><td class="down">1일 하락</td><td>59.1</td></tr>
-          <tr><td>美2년물<span class="supp-ticker">US02Y</span></td><td class="up">+3.83%</td><td class="needchk">+0.00%</td><td class="up">+5.85%</td><td class="up">+24.00%</td><td class="up">2일 상승</td><td>85.4</td></tr>
-          <tr><td>달러인덱스<span class="supp-ticker">DXY</span></td><td class="up">+0.14%</td><td class="down">-1.64%</td><td class="down">-1.55%</td><td class="up">+1.69%</td><td class="up">1일 상승</td><td>37.8</td></tr>
-          <tr><td>WTI 원유<span class="supp-ticker">USOIL</span></td><td class="down">-5.89%</td><td class="down">-29.46%</td><td class="down">-3.55%</td><td class="up">+38.77%</td><td class="down">1일 하락</td><td>47.4</td></tr>
-          <tr><td>금<span class="supp-ticker">GOLD</span></td><td class="up">+1.06%</td><td class="down">-23.06%</td><td class="up">+0.43%</td><td class="down">-5.40%</td><td class="up">1일 상승</td><td>49.1</td></tr>
-          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/bitcoin.org" onerror="this.style.display='none'">비트코인<span class="supp-ticker">BTC</span></td><td class="up">+0.48%</td><td class="down">-34.19%</td><td class="down">-0.19%</td><td class="down">-27.11%</td><td class="up">2일 상승</td><td>49.0</td></tr>
-          <tr><td>원달러 환율<span class="supp-ticker">USDKRW</span></td><td class="up">+0.63%</td><td class="down">-8.04%</td><td class="down">-1.96%</td><td class="down">-0.59%</td><td class="up">1일 상승</td><td>27.5</td></tr>
+          <tr><td>VIX<span class="supp-ticker">VIX</span></td><td class="needchk">확인 필요</td><td class="down">-46.6%</td><td class="up">+0.4%</td><td class="up">+0.3%</td><td class="up">2일 상승</td><td>50.7</td></tr>
+          <tr><td>美10년물<span class="supp-ticker">US10Y</span></td><td class="needchk">확인 필요</td><td class="down">-0.4%</td><td class="up">+3.1%</td><td class="up">+12.7%</td><td class="down">1일 하락</td><td>58.9</td></tr>
+          <tr><td>美2년물<span class="supp-ticker">US02Y</span></td><td class="needchk">확인 필요</td><td class="down">-0.5%</td><td class="up">+3.8%</td><td class="up">+20.6%<span class="needchk">*</span></td><td class="down">1일 하락</td><td>64.1</td></tr>
+          <tr><td>달러인덱스<span class="supp-ticker">DXY</span></td><td class="needchk">확인 필요</td><td class="down">-0.3%</td><td class="up">+0.9%<span class="needchk">*</span></td><td class="up">+3.3%</td><td class="needchk">확인 필요</td><td>64.5</td></tr>
+          <tr><td>WTI 원유<span class="supp-ticker">USOIL</span></td><td class="needchk">확인 필요</td><td class="down">-15.9%</td><td class="up">+9.5%<span class="needchk">*</span></td><td class="up">+25.2%<span class="needchk">*</span></td><td class="down">1일 하락</td><td>46.3</td></tr>
+          <tr><td>금<span class="supp-ticker">GOLD</span></td><td class="needchk">확인 필요</td><td class="down">-27.7%</td><td class="up">+2.0%</td><td class="down">-6.1%</td><td class="needchk">확인 필요</td><td>48.5</td></tr>
+          <tr><td><img class="supp-logo" src="https://logo.clearbit.com/bitcoin.org" onerror="this.style.display='none'">비트코인<span class="supp-ticker">BTC</span></td><td class="needchk">확인 필요</td><td class="down">-48.5%</td><td class="up">+2.0%</td><td class="down">-25.7%</td><td class="down">2일 하락</td><td>72.5</td></tr>
+          <tr><td>원달러 환율<span class="supp-ticker">USDKRW</span></td><td class="needchk">확인 필요</td><td class="down">-5.4%</td><td class="down">-0.7%<span class="needchk">*</span></td><td class="up">+2.2%</td><td class="needchk">확인 필요</td><td>30.2</td></tr>
           <!--SUPP:macro:END-->
         </tbody>
       </table>
@@ -1237,27 +1246,129 @@
     <div class="card">
       <div class="card-title">실적 캘린더 (달력 보기)</div>
       <!--EARNCAL:START-->
-        <div class="cal-month">
-          <div class="cal-month-title">2026년 8월</div>
-          <div class="cal-grid">
-            <div class="cal-weekday">일</div><div class="cal-weekday">월</div><div class="cal-weekday">화</div><div class="cal-weekday">수</div><div class="cal-weekday">목</div><div class="cal-weekday">금</div><div class="cal-weekday">토</div>
-            <div class="cal-cell empty"><div class="cal-daynum">26</div></div><div class="cal-cell empty"><div class="cal-daynum">27</div></div><div class="cal-cell empty"><div class="cal-daynum">28</div></div><div class="cal-cell empty"><div class="cal-daynum">29</div></div><div class="cal-cell empty"><div class="cal-daynum">30</div></div><div class="cal-cell empty"><div class="cal-daynum">31</div></div><div class="cal-cell"><div class="cal-daynum">1</div></div>
-            <div class="cal-cell"><div class="cal-daynum">2</div></div><div class="cal-cell"><div class="cal-daynum">3</div></div><div class="cal-cell today"><div class="cal-daynum">4</div><div class="cal-chip">AMD</div><div class="cal-chip">CAT</div><div class="cal-chip">HSBC</div><div class="cal-chip">MRK</div><div class="cal-chip">SPCX</div></div><div class="cal-cell"><div class="cal-daynum">5</div><div class="cal-chip">LLY</div></div><div class="cal-cell"><div class="cal-daynum">6</div><div class="cal-chip">셀트리온</div></div><div class="cal-cell"><div class="cal-daynum">7</div><div class="cal-chip">네이버</div></div><div class="cal-cell"><div class="cal-daynum">8</div><div class="cal-chip">BRK.B</div></div>
-            <div class="cal-cell"><div class="cal-daynum">9</div></div><div class="cal-cell"><div class="cal-daynum">10</div></div><div class="cal-cell"><div class="cal-daynum">11</div></div><div class="cal-cell"><div class="cal-daynum">12</div><div class="cal-chip">CSCO</div><div class="cal-chip">삼성생명</div></div><div class="cal-cell"><div class="cal-daynum">13</div><div class="cal-chip">AMAT</div><div class="cal-chip">SK</div><div class="cal-chip">SK스퀘어</div></div><div class="cal-cell"><div class="cal-daynum">14</div></div><div class="cal-cell"><div class="cal-daynum">15</div></div>
-            <div class="cal-cell"><div class="cal-daynum">16</div></div><div class="cal-cell"><div class="cal-daynum">17</div></div><div class="cal-cell"><div class="cal-daynum">18</div><div class="cal-chip">HD</div></div><div class="cal-cell"><div class="cal-daynum">19</div></div><div class="cal-cell"><div class="cal-daynum">20</div><div class="cal-chip">WMT</div></div><div class="cal-cell"><div class="cal-daynum">21</div></div><div class="cal-cell"><div class="cal-daynum">22</div></div>
-            <div class="cal-cell"><div class="cal-daynum">23</div></div><div class="cal-cell"><div class="cal-daynum">24</div></div><div class="cal-cell"><div class="cal-daynum">25</div></div><div class="cal-cell"><div class="cal-daynum">26</div><div class="cal-chip">NVDA</div></div><div class="cal-cell"><div class="cal-daynum">27</div><div class="cal-chip">RY</div></div><div class="cal-cell"><div class="cal-daynum">28</div></div><div class="cal-cell"><div class="cal-daynum">29</div></div>
-            <div class="cal-cell"><div class="cal-daynum">30</div></div><div class="cal-cell"><div class="cal-daynum">31</div></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div>
-          </div>
+<div class="cal-month">
+        <div class="cal-month-title">2026년 7월</div>
+        <div class="cal-grid">
+          <div class="cal-weekday">일</div><div class="cal-weekday">월</div><div class="cal-weekday">화</div><div class="cal-weekday">수</div><div class="cal-weekday">목</div><div class="cal-weekday">금</div><div class="cal-weekday">토</div>
+          <div class="cal-cell empty"><div class="cal-daynum">28</div></div>
+          <div class="cal-cell empty"><div class="cal-daynum">29</div></div>
+          <div class="cal-cell empty"><div class="cal-daynum">30</div></div>
+          <div class="cal-cell"><div class="cal-daynum">1</div></div>
+          <div class="cal-cell"><div class="cal-daynum">2</div></div>
+          <div class="cal-cell"><div class="cal-daynum">3</div></div>
+          <div class="cal-cell"><div class="cal-daynum">4</div></div>
+          <div class="cal-cell"><div class="cal-daynum">5</div></div>
+          <div class="cal-cell"><div class="cal-daynum">6</div></div>
+          <div class="cal-cell"><div class="cal-daynum">7</div></div>
+          <div class="cal-cell"><div class="cal-daynum">8</div></div>
+          <div class="cal-cell"><div class="cal-daynum">9</div></div>
+          <div class="cal-cell"><div class="cal-daynum">10</div></div>
+          <div class="cal-cell"><div class="cal-daynum">11</div></div>
+          <div class="cal-cell"><div class="cal-daynum">12</div></div>
+          <div class="cal-cell"><div class="cal-daynum">13</div></div>
+          <div class="cal-cell"><div class="cal-daynum">14</div></div>
+          <div class="cal-cell"><div class="cal-daynum">15</div></div>
+          <div class="cal-cell"><div class="cal-daynum">16</div></div>
+          <div class="cal-cell"><div class="cal-daynum">17</div></div>
+          <div class="cal-cell"><div class="cal-daynum">18</div></div>
+          <div class="cal-cell"><div class="cal-daynum">19</div></div>
+          <div class="cal-cell"><div class="cal-daynum">20</div></div>
+          <div class="cal-cell"><div class="cal-daynum">21</div></div>
+          <div class="cal-cell"><div class="cal-daynum">22</div><div class="cal-chip">GOOGL</div><div class="cal-chip">TSLA</div></div>
+          <div class="cal-cell"><div class="cal-daynum">23</div><div class="cal-chip">INTC</div></div>
+          <div class="cal-cell"><div class="cal-daynum">24</div></div>
+          <div class="cal-cell"><div class="cal-daynum">25</div></div>
+          <div class="cal-cell"><div class="cal-daynum">26</div></div>
+          <div class="cal-cell"><div class="cal-daynum">27</div></div>
+          <div class="cal-cell"><div class="cal-daynum">28</div></div>
+          <div class="cal-cell"><div class="cal-daynum">29</div><div class="cal-chip">MSFT</div><div class="cal-chip">META</div><div class="cal-chip">ARM</div><div class="cal-chip">LRCX</div><div class="cal-chip">SK하이닉스</div></div>
+          <div class="cal-cell"><div class="cal-daynum">30</div><div class="cal-chip">AAPL</div><div class="cal-chip">AMZN</div></div>
+          <div class="cal-cell"><div class="cal-daynum">31</div></div>
+          <div class="cal-cell empty"><div class="cal-daynum">1</div></div>
         </div>
-        <div class="cal-month">
+      </div>
+      <div class="cal-month">
+        <div class="cal-month-title">2026년 8월</div>
+        <div class="cal-grid">
+          <div class="cal-weekday">일</div><div class="cal-weekday">월</div><div class="cal-weekday">화</div><div class="cal-weekday">수</div><div class="cal-weekday">목</div><div class="cal-weekday">금</div><div class="cal-weekday">토</div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell empty"></div>
+          <div class="cal-cell"><div class="cal-daynum">1</div></div>
+          <div class="cal-cell"><div class="cal-daynum">2</div></div>
+          <div class="cal-cell"><div class="cal-daynum">3</div></div>
+          <div class="cal-cell"><div class="cal-daynum">4</div><div class="cal-chip">AMD</div></div>
+          <div class="cal-cell"><div class="cal-daynum">5</div><div class="cal-chip">LLY</div></div>
+          <div class="cal-cell"><div class="cal-daynum">6</div></div>
+          <div class="cal-cell"><div class="cal-daynum">7</div></div>
+          <div class="cal-cell"><div class="cal-daynum">8</div></div>
+          <div class="cal-cell"><div class="cal-daynum">9</div></div>
+          <div class="cal-cell"><div class="cal-daynum">10</div></div>
+          <div class="cal-cell"><div class="cal-daynum">11</div></div>
+          <div class="cal-cell"><div class="cal-daynum">12</div><div class="cal-chip est">CSCO*</div></div>
+          <div class="cal-cell"><div class="cal-daynum">13</div><div class="cal-chip">AMAT</div></div>
+          <div class="cal-cell"><div class="cal-daynum">14</div></div>
+          <div class="cal-cell"><div class="cal-daynum">15</div></div>
+          <div class="cal-cell"><div class="cal-daynum">16</div></div>
+          <div class="cal-cell"><div class="cal-daynum">17</div></div>
+          <div class="cal-cell"><div class="cal-daynum">18</div></div>
+          <div class="cal-cell"><div class="cal-daynum">19</div></div>
+          <div class="cal-cell"><div class="cal-daynum">20</div><div class="cal-chip">WMT</div></div>
+          <div class="cal-cell"><div class="cal-daynum">21</div></div>
+          <div class="cal-cell"><div class="cal-daynum">22</div></div>
+          <div class="cal-cell"><div class="cal-daynum">23</div></div>
+          <div class="cal-cell"><div class="cal-daynum">24</div></div>
+          <div class="cal-cell"><div class="cal-daynum">25</div></div>
+          <div class="cal-cell"><div class="cal-daynum">26</div><div class="cal-chip est">NVDA*</div></div>
+          <div class="cal-cell"><div class="cal-daynum">27</div></div>
+          <div class="cal-cell"><div class="cal-daynum">28</div></div>
+          <div class="cal-cell"><div class="cal-daynum">29</div></div>
+          <div class="cal-cell"><div class="cal-daynum">30</div></div>
+          <div class="cal-cell"><div class="cal-daynum">31</div></div>
+        </div>
+      </div>
+      <div class="cal-month">
           <div class="cal-month-title">2026년 9월</div>
           <div class="cal-grid">
             <div class="cal-weekday">일</div><div class="cal-weekday">월</div><div class="cal-weekday">화</div><div class="cal-weekday">수</div><div class="cal-weekday">목</div><div class="cal-weekday">금</div><div class="cal-weekday">토</div>
-            <div class="cal-cell empty"><div class="cal-daynum">30</div></div><div class="cal-cell empty"><div class="cal-daynum">31</div></div><div class="cal-cell"><div class="cal-daynum">1</div></div><div class="cal-cell"><div class="cal-daynum">2</div><div class="cal-chip">AVGO</div></div><div class="cal-cell"><div class="cal-daynum">3</div><div class="cal-chip">DELL</div></div><div class="cal-cell"><div class="cal-daynum">4</div></div><div class="cal-cell"><div class="cal-daynum">5</div></div>
-            <div class="cal-cell"><div class="cal-daynum">6</div></div><div class="cal-cell"><div class="cal-daynum">7</div></div><div class="cal-cell"><div class="cal-daynum">8</div></div><div class="cal-cell"><div class="cal-daynum">9</div><div class="cal-chip">ORCL</div></div><div class="cal-cell"><div class="cal-daynum">10</div></div><div class="cal-cell"><div class="cal-daynum">11</div></div><div class="cal-cell"><div class="cal-daynum">12</div></div>
-            <div class="cal-cell"><div class="cal-daynum">13</div></div><div class="cal-cell"><div class="cal-daynum">14</div></div><div class="cal-cell"><div class="cal-daynum">15</div></div><div class="cal-cell"><div class="cal-daynum">16</div></div><div class="cal-cell"><div class="cal-daynum">17</div></div><div class="cal-cell"><div class="cal-daynum">18</div></div><div class="cal-cell"><div class="cal-daynum">19</div></div>
-            <div class="cal-cell"><div class="cal-daynum">20</div></div><div class="cal-cell"><div class="cal-daynum">21</div></div><div class="cal-cell"><div class="cal-daynum">22</div></div><div class="cal-cell"><div class="cal-daynum">23</div><div class="cal-chip">MU</div></div><div class="cal-cell"><div class="cal-daynum">24</div><div class="cal-chip">COST</div></div><div class="cal-cell"><div class="cal-daynum">25</div></div><div class="cal-cell"><div class="cal-daynum">26</div></div>
-            <div class="cal-cell"><div class="cal-daynum">27</div></div><div class="cal-cell"><div class="cal-daynum">28</div></div><div class="cal-cell"><div class="cal-daynum">29</div></div><div class="cal-cell"><div class="cal-daynum">30</div></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div><div class="cal-cell empty"></div>
+            <div class="cal-cell empty"></div>
+            <div class="cal-cell empty"></div>
+            <div class="cal-cell"><div class="cal-daynum">1</div></div>
+            <div class="cal-cell"><div class="cal-daynum">2</div></div>
+            <div class="cal-cell"><div class="cal-daynum">3</div><div class="cal-chip est">AVGO*</div></div>
+            <div class="cal-cell"><div class="cal-daynum">4</div></div>
+            <div class="cal-cell"><div class="cal-daynum">5</div></div>
+            <div class="cal-cell"><div class="cal-daynum">6</div></div>
+            <div class="cal-cell"><div class="cal-daynum">7</div></div>
+            <div class="cal-cell"><div class="cal-daynum">8</div></div>
+            <div class="cal-cell"><div class="cal-daynum">9</div></div>
+            <div class="cal-cell"><div class="cal-daynum">10</div></div>
+            <div class="cal-cell"><div class="cal-daynum">11</div></div>
+            <div class="cal-cell"><div class="cal-daynum">12</div></div>
+            <div class="cal-cell"><div class="cal-daynum">13</div></div>
+            <div class="cal-cell"><div class="cal-daynum">14</div><div class="cal-chip est">ORCL*</div></div>
+            <div class="cal-cell"><div class="cal-daynum">15</div></div>
+            <div class="cal-cell"><div class="cal-daynum">16</div></div>
+            <div class="cal-cell"><div class="cal-daynum">17</div></div>
+            <div class="cal-cell"><div class="cal-daynum">18</div></div>
+            <div class="cal-cell"><div class="cal-daynum">19</div></div>
+            <div class="cal-cell"><div class="cal-daynum">20</div></div>
+            <div class="cal-cell"><div class="cal-daynum">21</div></div>
+            <div class="cal-cell"><div class="cal-daynum">22</div></div>
+            <div class="cal-cell"><div class="cal-daynum">23</div><div class="cal-chip est">MU*</div></div>
+            <div class="cal-cell"><div class="cal-daynum">24</div></div>
+            <div class="cal-cell"><div class="cal-daynum">25</div></div>
+            <div class="cal-cell"><div class="cal-daynum">26</div></div>
+            <div class="cal-cell"><div class="cal-daynum">27</div></div>
+            <div class="cal-cell"><div class="cal-daynum">28</div></div>
+            <div class="cal-cell"><div class="cal-daynum">29</div></div>
+            <div class="cal-cell"><div class="cal-daynum">30</div></div>
+            <div class="cal-cell empty"></div>
+            <div class="cal-cell empty"></div>
+            <div class="cal-cell empty"></div>
           </div>
         </div>
       <!--EARNCAL:END-->
@@ -1267,327 +1378,116 @@
     <div class="card">
       <div class="card-title">주요 종목 실적 발표일 (목록)</div>
       <!--EARNLIST:START-->
-        <div class="earn-row">
-          <div><div class="earn-name">AMD</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-04 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">CAT 캐터필러</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-04 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">HSBC</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-04 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">MRK 머크</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-04 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">SPCX 스페이스X</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-04 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">LLY 일라이릴리</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-05 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">셀트리온</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-06 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">네이버</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-07 (금)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">BRK.B 버크셔해서웨이</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-08 (토)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">CSCO 시스코</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-12 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">삼성생명</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-12 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">AMAT 어플라이드머티리얼즈</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-13 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">SK</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-13 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">SK스퀘어</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-13 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">HD 홈디포</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-18 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">WMT 월마트</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-20 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">NVDA 엔비디아</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-26 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">RY 로열뱅크오브캐나다</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-08-27 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">AVGO 브로드컴</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-09-02 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">DELL 델테크놀로지스</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-09-03 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">ORCL 오라클</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-09-09 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">MU 마이크론</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-09-23 (수)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">COST 코스트코</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-09-24 (목)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">GS 골드만삭스</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-10-13 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">JNJ 존슨앤존슨</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-10-13 (화)</div>
-        </div>
-        <div class="earn-row">
-          <div><div class="earn-name">JPM JP모건</div><div class="earn-tag">확정</div></div>
-          <div class="earn-date">2026-10-13 (화)</div>
-        </div>
+<div class="earn-row">
+        <div><div class="earn-name">MSFT 마이크로소프트</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">META 메타</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">ARM</div><div class="earn-tag">확정</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">LRCX 램리서치</div><div class="earn-tag">확정</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">SK하이닉스</div><div class="earn-tag">한국시간 오전 9시</div></div>
+        <div class="earn-date">2026-07-29</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AAPL 애플</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-30</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AMZN 아마존</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-07-30</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AMD</div><div class="earn-tag">장마감 후</div></div>
+        <div class="earn-date">2026-08-04</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">LLY 일라이릴리</div><div class="earn-tag">확정</div></div>
+        <div class="earn-date">2026-08-05</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">CSCO 시스코</div><div class="earn-tag">예상일 (미확정)</div></div>
+        <div class="earn-date">2026-08-12</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AMAT 어플라이드머티리얼즈</div><div class="earn-tag">확정</div></div>
+        <div class="earn-date">2026-08-13</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">WMT 월마트</div><div class="earn-tag">확정</div></div>
+        <div class="earn-date">2026-08-20</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">NVDA 엔비디아</div><div class="earn-tag">예상일 (미확정)</div></div>
+        <div class="earn-date">2026-08-26</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">AVGO 브로드컴</div><div class="earn-tag">예상일 (미확정)</div></div>
+        <div class="earn-date">2026-09-03</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">ORCL 오라클</div><div class="earn-tag">예상일 (미확정)</div></div>
+        <div class="earn-date">2026-09-14</div>
+      </div>
+      <div class="earn-row">
+        <div><div class="earn-name">MU 마이크론</div><div class="earn-tag">예상일 (미확정)</div></div>
+        <div class="earn-date">2026-09-23</div>
+      </div>
       <!--EARNLIST:END-->
-      <div class="card-note">앞으로 70일치, 최대 40건을 <b>매일 자동 갱신</b>합니다. 야후에 발표일이 없어 빠진 종목: <b><!--EARNMISS-->받아오지 못한 종목: PLTR, ARM, LG에너지솔루션, 두산에너빌리티<!--/EARNMISS--></b></div>
+      <div class="card-note">앞으로 70일치, 최대 40건을 <b>매일 자동 갱신</b>합니다. 야후에 발표일이 없어 빠진 종목: <b><!--EARNMISS-->아직 갱신 전입니다<!--/EARNMISS--></b></div>
     </div>
   </section>
 
   <!-- ================= 빅테크 분석 ================= -->
   <section class="panel" id="capex">
     <div class="card">
-      <div class="card-title">M7 분기 실적 — 매출 · 영업이익 · 영업이익률 · 설비투자</div>
+      <div class="card-title">빅테크 8종목 분기 실적 — 매출 · 영업이익 · 영업이익률 · 설비투자 · 잉여현금흐름</div>
       <!--FIN:START-->
         <div class="fin-grid">
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/amazon.com" onerror="this.style.display='none'">아마존<span class="supp-ticker">AMZN</span><span class="fin-q">26 1Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$181.5B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+16.6%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,66.0 160.0,54.1 232.0,22.6 304.0,52.9"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 1Q $155.7B</title></circle><text class="fin-plab" x="16.0" y="71.4">156</text><text class="fin-xlab" x="16.0" y="97.0">25 1Q</text><circle class="fin-dot" cx="88.0" cy="66.0" r="2.6"><title>25 2Q $167.7B</title></circle><text class="fin-plab" x="88.0" y="60.0">168</text><text class="fin-xlab" x="88.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="160.0" cy="54.1" r="2.6"><title>25 3Q $180.2B</title></circle><text class="fin-plab" x="160.0" y="48.1">180</text><text class="fin-xlab" x="160.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="232.0" cy="22.6" r="2.6"><title>25 4Q $213.4B</title></circle><text class="fin-plab" x="232.0" y="16.6">213</text><text class="fin-xlab" x="232.0" y="97.0">25 4Q</text><circle class="fin-dot is-last" cx="304.0" cy="52.9" r="2.6"><title>26 1Q $181.5B</title></circle><text class="fin-plab is-last" x="304.0" y="46.9">182</text><text class="fin-xlab" x="304.0" y="97.0">26 1Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$23.9B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+29.6%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,70.3 88.0,64.7 160.0,77.4 232.0,22.6 304.0,30.7"/><circle class="fin-dot" cx="16.0" cy="70.3" r="2.6"><title>25 1Q $18.4B</title></circle><text class="fin-plab" x="16.0" y="64.3">18.4</text><text class="fin-xlab" x="16.0" y="97.0">25 1Q</text><circle class="fin-dot" cx="88.0" cy="64.7" r="2.6"><title>25 2Q $19.2B</title></circle><text class="fin-plab" x="88.0" y="58.7">19.2</text><text class="fin-xlab" x="88.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="160.0" cy="77.4" r="2.6"><title>25 3Q $17.4B</title></circle><text class="fin-plab" x="160.0" y="71.4">17.4</text><text class="fin-xlab" x="160.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="232.0" cy="22.6" r="2.6"><title>25 4Q $25.0B</title></circle><text class="fin-plab" x="232.0" y="16.6">25.0</text><text class="fin-xlab" x="232.0" y="97.0">25 4Q</text><circle class="fin-dot is-last" cx="304.0" cy="30.7" r="2.6"><title>26 1Q $23.9B</title></circle><text class="fin-plab is-last" x="304.0" y="24.7">23.9</text><text class="fin-xlab" x="304.0" y="97.0">26 1Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">13.1%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+1.3%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,43.4 88.0,49.6 160.0,77.4 232.0,45.3 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="43.4" r="2.6"><title>25 1Q 11.8%</title></circle><text class="fin-plab" x="16.0" y="37.4">11.8</text><text class="fin-xlab" x="16.0" y="97.0">25 1Q</text><circle class="fin-dot" cx="88.0" cy="49.6" r="2.6"><title>25 2Q 11.4%</title></circle><text class="fin-plab" x="88.0" y="43.6">11.4</text><text class="fin-xlab" x="88.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="160.0" cy="77.4" r="2.6"><title>25 3Q 9.7%</title></circle><text class="fin-plab" x="160.0" y="71.4">9.7</text><text class="fin-xlab" x="160.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="232.0" cy="45.3" r="2.6"><title>25 4Q 11.7%</title></circle><text class="fin-plab" x="232.0" y="39.3">11.7</text><text class="fin-xlab" x="232.0" y="97.0">25 4Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 1Q 13.1%</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">13.1</text><text class="fin-xlab" x="304.0" y="97.0">26 1Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$44.2B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+76.7%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,56.9 160.0,48.6 232.0,36.0 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 1Q $25.0B</title></circle><text class="fin-plab" x="16.0" y="71.4">25.0</text><text class="fin-xlab" x="16.0" y="97.0">25 1Q</text><circle class="fin-dot" cx="88.0" cy="56.9" r="2.6"><title>25 2Q $32.2B</title></circle><text class="fin-plab" x="88.0" y="50.9">32.2</text><text class="fin-xlab" x="88.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="160.0" cy="48.6" r="2.6"><title>25 3Q $35.1B</title></circle><text class="fin-plab" x="160.0" y="42.6">35.1</text><text class="fin-xlab" x="160.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="232.0" cy="36.0" r="2.6"><title>25 4Q $39.5B</title></circle><text class="fin-plab" x="232.0" y="30.0">39.5</text><text class="fin-xlab" x="232.0" y="97.0">25 4Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 1Q $44.2B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">44.2</text><text class="fin-xlab" x="304.0" y="97.0">26 1Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/amazon.com" onerror="this.style.display='none'">아마존<span class="supp-ticker">AMZN</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/abc.xyz" onerror="this.style.display='none'">알파벳<span class="supp-ticker">GOOGL</span><span class="fin-q">26 2Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$119.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+24.2%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,63.5 160.0,36.6 232.0,45.8 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $96.4B</title></circle><text class="fin-plab" x="16.0" y="71.4">96.4</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="63.5" r="2.6"><title>25 3Q $102.3B</title></circle><text class="fin-plab" x="88.0" y="57.5">102</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="36.6" r="2.6"><title>25 4Q $113.8B</title></circle><text class="fin-plab" x="160.0" y="30.6">114</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="45.8" r="2.6"><title>26 1Q $109.9B</title></circle><text class="fin-plab" x="232.0" y="39.8">110</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $119.8B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">120</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$40.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+30.4%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.2 88.0,77.4 160.0,50.4 232.0,28.8 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.2" r="2.6"><title>25 2Q $31.3B</title></circle><text class="fin-plab" x="16.0" y="71.2">31.3</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="77.4" r="2.6"><title>25 3Q $31.2B</title></circle><text class="fin-plab" x="88.0" y="71.4">31.2</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="50.4" r="2.6"><title>25 4Q $35.9B</title></circle><text class="fin-plab" x="160.0" y="44.4">35.9</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="28.8" r="2.6"><title>26 1Q $39.7B</title></circle><text class="fin-plab" x="232.0" y="22.8">39.7</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $40.8B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">40.8</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">34.0%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+1.6%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,58.7 88.0,77.4 160.0,67.1 232.0,22.6 304.0,43.0"/><circle class="fin-dot" cx="16.0" cy="58.7" r="2.6"><title>25 2Q 32.4%</title></circle><text class="fin-plab" x="16.0" y="52.7">32.4</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="77.4" r="2.6"><title>25 3Q 30.5%</title></circle><text class="fin-plab" x="88.0" y="71.4">30.5</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="67.1" r="2.6"><title>25 4Q 31.6%</title></circle><text class="fin-plab" x="160.0" y="61.1">31.6</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="22.6" r="2.6"><title>26 1Q 36.1%</title></circle><text class="fin-plab" x="232.0" y="16.6">36.1</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="43.0" r="2.6"><title>26 2Q 34.0%</title></circle><text class="fin-plab is-last" x="304.0" y="37.0">34.0</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$44.9B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+100.1%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,73.7 160.0,64.2 232.0,45.1 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $22.4B</title></circle><text class="fin-plab" x="16.0" y="71.4">22.4</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="73.7" r="2.6"><title>25 3Q $24.0B</title></circle><text class="fin-plab" x="88.0" y="67.7">24.0</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="64.2" r="2.6"><title>25 4Q $27.9B</title></circle><text class="fin-plab" x="160.0" y="58.2">27.9</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="45.1" r="2.6"><title>26 1Q $35.7B</title></circle><text class="fin-plab" x="232.0" y="39.1">35.7</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $44.9B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">44.9</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/abc.xyz" onerror="this.style.display='none'">알파벳<span class="supp-ticker">GOOGL</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/microsoft.com" onerror="this.style.display='none'">마이크로소프트<span class="supp-ticker">MSFT</span><span class="fin-q">26 2Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$90.0B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+17.7%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,72.4 160.0,57.9 232.0,51.4 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $76.4B</title></circle><text class="fin-plab" x="16.0" y="71.4">76.4</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="72.4" r="2.6"><title>25 3Q $77.7B</title></circle><text class="fin-plab" x="88.0" y="66.4">77.7</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="57.9" r="2.6"><title>25 4Q $81.3B</title></circle><text class="fin-plab" x="160.0" y="51.9">81.3</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="51.4" r="2.6"><title>26 1Q $82.9B</title></circle><text class="fin-plab" x="232.0" y="45.4">82.9</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $90.0B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">90.0</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$40.6B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+18.3%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,45.7 160.0,42.9 232.0,41.8 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $34.3B</title></circle><text class="fin-plab" x="16.0" y="71.4">34.3</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="45.7" r="2.6"><title>25 3Q $38.0B</title></circle><text class="fin-plab" x="88.0" y="39.7">38.0</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="42.9" r="2.6"><title>25 4Q $38.3B</title></circle><text class="fin-plab" x="160.0" y="36.9">38.3</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="41.8" r="2.6"><title>26 1Q $38.4B</title></circle><text class="fin-plab" x="232.0" y="35.8">38.4</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $40.6B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">40.6</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">45.1%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+0.2%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,22.6 160.0,47.1 232.0,57.7 304.0,74.5"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q 44.9%</title></circle><text class="fin-plab" x="16.0" y="71.4">44.9</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="22.6" r="2.6"><title>25 3Q 48.9%</title></circle><text class="fin-plab" x="88.0" y="16.6">48.9</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="47.1" r="2.6"><title>25 4Q 47.1%</title></circle><text class="fin-plab" x="160.0" y="41.1">47.1</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="57.7" r="2.6"><title>26 1Q 46.3%</title></circle><text class="fin-plab" x="232.0" y="51.7">46.3</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="74.5" r="2.6"><title>26 2Q 45.1%</title></circle><text class="fin-plab is-last" x="304.0" y="68.5">45.1</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$35.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+109.6%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,70.6 160.0,39.9 232.0,37.0 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $17.1B</title></circle><text class="fin-plab" x="16.0" y="71.4">17.1</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="70.6" r="2.6"><title>25 3Q $19.4B</title></circle><text class="fin-plab" x="88.0" y="64.6">19.4</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="39.9" r="2.6"><title>25 4Q $29.9B</title></circle><text class="fin-plab" x="160.0" y="33.9">29.9</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="37.0" r="2.6"><title>26 1Q $30.9B</title></circle><text class="fin-plab" x="232.0" y="31.0">30.9</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $35.8B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">35.8</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/microsoft.com" onerror="this.style.display='none'">마이크로소프트<span class="supp-ticker">MSFT</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/meta.com" onerror="this.style.display='none'">메타<span class="supp-ticker">META</span><span class="fin-q">26 2Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$60.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+28.0%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,62.0 160.0,26.3 232.0,41.1 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $47.5B</title></circle><text class="fin-plab" x="16.0" y="71.4">47.5</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="62.0" r="2.6"><title>25 3Q $51.2B</title></circle><text class="fin-plab" x="88.0" y="56.0">51.2</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="26.3" r="2.6"><title>25 4Q $59.9B</title></circle><text class="fin-plab" x="160.0" y="20.3">59.9</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="41.1" r="2.6"><title>26 1Q $56.3B</title></circle><text class="fin-plab" x="232.0" y="35.1">56.3</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $60.8B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">60.8</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$18.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="down">-8.2%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,62.1 88.0,61.3 160.0,22.6 232.0,39.8 304.0,77.4"/><circle class="fin-dot" cx="16.0" cy="62.1" r="2.6"><title>25 2Q $20.4B</title></circle><text class="fin-plab" x="16.0" y="56.1">20.4</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="61.3" r="2.6"><title>25 3Q $20.5B</title></circle><text class="fin-plab" x="88.0" y="55.3">20.5</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="22.6" r="2.6"><title>25 4Q $24.7B</title></circle><text class="fin-plab" x="160.0" y="16.6">24.7</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="39.8" r="2.6"><title>26 1Q $22.9B</title></circle><text class="fin-plab" x="232.0" y="33.8">22.9</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="77.4" r="2.6"><title>26 2Q $18.8B</title></circle><text class="fin-plab is-last" x="304.0" y="71.4">18.8</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">30.9%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="down">-12.1%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,22.6 88.0,35.9 160.0,30.3 232.0,33.4 304.0,77.4"/><circle class="fin-dot" cx="16.0" cy="22.6" r="2.6"><title>25 2Q 43.0%</title></circle><text class="fin-plab" x="16.0" y="16.6">43.0</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="35.9" r="2.6"><title>25 3Q 40.1%</title></circle><text class="fin-plab" x="88.0" y="29.9">40.1</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="30.3" r="2.6"><title>25 4Q 41.3%</title></circle><text class="fin-plab" x="160.0" y="24.3">41.3</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="33.4" r="2.6"><title>26 1Q 40.6%</title></circle><text class="fin-plab" x="232.0" y="27.4">40.6</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="77.4" r="2.6"><title>26 2Q 30.9%</title></circle><text class="fin-plab is-last" x="304.0" y="71.4">30.9</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$30.1B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+82.1%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,68.2 160.0,57.9 232.0,67.5 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $16.5B</title></circle><text class="fin-plab" x="16.0" y="71.4">16.5</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="68.2" r="2.6"><title>25 3Q $18.8B</title></circle><text class="fin-plab" x="88.0" y="62.2">18.8</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="57.9" r="2.6"><title>25 4Q $21.4B</title></circle><text class="fin-plab" x="160.0" y="51.9">21.4</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="67.5" r="2.6"><title>26 1Q $19.0B</title></circle><text class="fin-plab" x="232.0" y="61.5">19.0</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $30.1B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">30.1</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/meta.com" onerror="this.style.display='none'">메타<span class="supp-ticker">META</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/nvidia.com" onerror="this.style.display='none'">엔비디아<span class="supp-ticker">NVDA</span><span class="fin-q">26 2Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$81.6B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+85.2%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,73.5 160.0,58.5 232.0,42.3 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $44.1B</title></circle><text class="fin-plab" x="16.0" y="71.4">44.1</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="73.5" r="2.6"><title>25 3Q $46.7B</title></circle><text class="fin-plab" x="88.0" y="67.5">46.7</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="58.5" r="2.6"><title>25 4Q $57.0B</title></circle><text class="fin-plab" x="160.0" y="52.5">57.0</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="42.3" r="2.6"><title>26 1Q $68.1B</title></circle><text class="fin-plab" x="232.0" y="36.3">68.1</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $81.6B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">81.6</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$53.5B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+147.4%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,65.7 160.0,52.7 232.0,38.5 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $21.6B</title></circle><text class="fin-plab" x="16.0" y="71.4">21.6</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="65.7" r="2.6"><title>25 3Q $28.4B</title></circle><text class="fin-plab" x="88.0" y="59.7">28.4</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="52.7" r="2.6"><title>25 4Q $36.0B</title></circle><text class="fin-plab" x="160.0" y="46.7">36.0</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="38.5" r="2.6"><title>26 1Q $44.3B</title></circle><text class="fin-plab" x="232.0" y="32.5">44.3</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $53.5B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">53.5</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">65.6%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+16.5%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,38.4 160.0,30.7 232.0,24.5 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q 49.1%</title></circle><text class="fin-plab" x="16.0" y="71.4">49.1</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="38.4" r="2.6"><title>25 3Q 60.8%</title></circle><text class="fin-plab" x="88.0" y="32.4">60.8</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="30.7" r="2.6"><title>25 4Q 63.2%</title></circle><text class="fin-plab" x="160.0" y="24.7">63.2</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="24.5" r="2.6"><title>26 1Q 65.0%</title></circle><text class="fin-plab" x="232.0" y="18.5">65.0</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q 65.6%</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">65.6</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$1.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+43.2%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,22.6 160.0,43.8 232.0,72.7 304.0,33.9"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $1.2B</title></circle><text class="fin-plab" x="16.0" y="71.4">1.2</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="22.6" r="2.6"><title>25 3Q $1.9B</title></circle><text class="fin-plab" x="88.0" y="16.6">1.9</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="43.8" r="2.6"><title>25 4Q $1.6B</title></circle><text class="fin-plab" x="160.0" y="37.8">1.6</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="72.7" r="2.6"><title>26 1Q $1.3B</title></circle><text class="fin-plab" x="232.0" y="66.7">1.3</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="33.9" r="2.6"><title>26 2Q $1.8B</title></circle><text class="fin-plab is-last" x="304.0" y="27.9">1.8</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/nvidia.com" onerror="this.style.display='none'">엔비디아<span class="supp-ticker">NVDA</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/apple.com" onerror="this.style.display='none'">애플<span class="supp-ticker">AAPL</span><span class="fin-q">26 2Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$109.4B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+16.4%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,68.1 160.0,22.6 232.0,58.5 304.0,60.5"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $94.0B</title></circle><text class="fin-plab" x="16.0" y="71.4">94.0</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="68.1" r="2.6"><title>25 3Q $102.5B</title></circle><text class="fin-plab" x="88.0" y="62.1">102</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="22.6" r="2.6"><title>25 4Q $143.8B</title></circle><text class="fin-plab" x="160.0" y="16.6">144</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="58.5" r="2.6"><title>26 1Q $111.2B</title></circle><text class="fin-plab" x="232.0" y="52.5">111</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="60.5" r="2.6"><title>26 2Q $109.4B</title></circle><text class="fin-plab is-last" x="304.0" y="54.5">109</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$35.7B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+26.6%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,67.2 160.0,22.6 232.0,58.8 304.0,59.3"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q $28.2B</title></circle><text class="fin-plab" x="16.0" y="71.4">28.2</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="67.2" r="2.6"><title>25 3Q $32.4B</title></circle><text class="fin-plab" x="88.0" y="61.2">32.4</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="22.6" r="2.6"><title>25 4Q $50.9B</title></circle><text class="fin-plab" x="160.0" y="16.6">50.9</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="58.8" r="2.6"><title>26 1Q $35.9B</title></circle><text class="fin-plab" x="232.0" y="52.8">35.9</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="59.3" r="2.6"><title>26 2Q $35.7B</title></circle><text class="fin-plab is-last" x="304.0" y="53.3">35.7</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">32.6%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+2.6%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,77.4 88.0,60.6 160.0,22.6 232.0,54.1 304.0,50.6"/><circle class="fin-dot" cx="16.0" cy="77.4" r="2.6"><title>25 2Q 30.0%</title></circle><text class="fin-plab" x="16.0" y="71.4">30.0</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="60.6" r="2.6"><title>25 3Q 31.6%</title></circle><text class="fin-plab" x="88.0" y="54.6">31.6</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="22.6" r="2.6"><title>25 4Q 35.4%</title></circle><text class="fin-plab" x="160.0" y="16.6">35.4</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="54.1" r="2.6"><title>26 1Q 32.3%</title></circle><text class="fin-plab" x="232.0" y="48.1">32.3</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="50.6" r="2.6"><title>26 2Q 32.6%</title></circle><text class="fin-plab is-last" x="304.0" y="44.6">32.6</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$2.5B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="down">-29.1%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,22.6 88.0,30.7 160.0,62.6 232.0,77.4 304.0,59.6"/><circle class="fin-dot" cx="16.0" cy="22.6" r="2.6"><title>25 2Q $3.5B</title></circle><text class="fin-plab" x="16.0" y="16.6">3.5</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="30.7" r="2.6"><title>25 3Q $3.2B</title></circle><text class="fin-plab" x="88.0" y="24.7">3.2</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="62.6" r="2.6"><title>25 4Q $2.4B</title></circle><text class="fin-plab" x="160.0" y="56.6">2.4</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="77.4" r="2.6"><title>26 1Q $2.0B</title></circle><text class="fin-plab" x="232.0" y="71.4">2.0</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="59.6" r="2.6"><title>26 2Q $2.5B</title></circle><text class="fin-plab is-last" x="304.0" y="53.6">2.5</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/apple.com" onerror="this.style.display='none'">애플<span class="supp-ticker">AAPL</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
           <div class="fin-item">
-            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/tesla.com" onerror="this.style.display='none'">테슬라<span class="supp-ticker">TSLA</span><span class="fin-q">26 2Q 기준</span></div>
-            <div class="fin-metrics">
-            <div class="fin-metric">
-              <div class="fin-mlabel">매출</div>
-              <div class="fin-mval">$28.2B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+25.5%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,76.4 88.0,23.9 160.0,53.8 232.0,77.4 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="76.4" r="2.6"><title>25 2Q $22.5B</title></circle><text class="fin-plab" x="16.0" y="70.4">22.5</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="23.9" r="2.6"><title>25 3Q $28.1B</title></circle><text class="fin-plab" x="88.0" y="17.9">28.1</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="53.8" r="2.6"><title>25 4Q $24.9B</title></circle><text class="fin-plab" x="160.0" y="47.8">24.9</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="77.4" r="2.6"><title>26 1Q $22.4B</title></circle><text class="fin-plab" x="232.0" y="71.4">22.4</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $28.2B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">28.2</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익</div>
-              <div class="fin-mval">$0.4B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="down">-56.9%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,57.8 88.0,22.6 160.0,33.5 232.0,57.1 304.0,77.4"/><circle class="fin-dot" cx="16.0" cy="57.8" r="2.6"><title>25 2Q $0.9B</title></circle><text class="fin-plab" x="16.0" y="51.8">0.9</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="22.6" r="2.6"><title>25 3Q $1.9B</title></circle><text class="fin-plab" x="88.0" y="16.6">1.9</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="33.5" r="2.6"><title>25 4Q $1.6B</title></circle><text class="fin-plab" x="160.0" y="27.5">1.6</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="57.1" r="2.6"><title>26 1Q $0.9B</title></circle><text class="fin-plab" x="232.0" y="51.1">0.9</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="77.4" r="2.6"><title>26 2Q $0.4B</title></circle><text class="fin-plab is-last" x="304.0" y="71.4">0.4</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">영업이익률</div>
-              <div class="fin-mval">1.4%</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="down">-2.7%p</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,49.1 88.0,22.6 160.0,25.9 232.0,48.1 304.0,77.4"/><circle class="fin-dot" cx="16.0" cy="49.1" r="2.6"><title>25 2Q 4.1%</title></circle><text class="fin-plab" x="16.0" y="43.1">4.1</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="22.6" r="2.6"><title>25 3Q 6.6%</title></circle><text class="fin-plab" x="88.0" y="16.6">6.6</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="25.9" r="2.6"><title>25 4Q 6.3%</title></circle><text class="fin-plab" x="160.0" y="19.9">6.3</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="48.1" r="2.6"><title>26 1Q 4.2%</title></circle><text class="fin-plab" x="232.0" y="42.1">4.2</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="77.4" r="2.6"><title>26 2Q 1.4%</title></circle><text class="fin-plab is-last" x="304.0" y="71.4">1.4</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            <div class="fin-metric">
-              <div class="fin-mlabel">설비투자(CAPEX)</div>
-              <div class="fin-mval">$5.8B</div>
-              <div class="fin-mchg">전년 동기 대비 <span class="up">+142.1%</span></div>
-              <svg class="fin-chart" viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" role="img"><polyline class="fin-line" points="16.0,75.2 88.0,77.4 160.0,75.2 232.0,73.6 304.0,22.6"/><circle class="fin-dot" cx="16.0" cy="75.2" r="2.6"><title>25 2Q $2.4B</title></circle><text class="fin-plab" x="16.0" y="69.2">2.4</text><text class="fin-xlab" x="16.0" y="97.0">25 2Q</text><circle class="fin-dot" cx="88.0" cy="77.4" r="2.6"><title>25 3Q $2.2B</title></circle><text class="fin-plab" x="88.0" y="71.4">2.2</text><text class="fin-xlab" x="88.0" y="97.0">25 3Q</text><circle class="fin-dot" cx="160.0" cy="75.2" r="2.6"><title>25 4Q $2.4B</title></circle><text class="fin-plab" x="160.0" y="69.2">2.4</text><text class="fin-xlab" x="160.0" y="97.0">25 4Q</text><circle class="fin-dot" cx="232.0" cy="73.6" r="2.6"><title>26 1Q $2.5B</title></circle><text class="fin-plab" x="232.0" y="67.6">2.5</text><text class="fin-xlab" x="232.0" y="97.0">26 1Q</text><circle class="fin-dot is-last" cx="304.0" cy="22.6" r="2.6"><title>26 2Q $5.8B</title></circle><text class="fin-plab is-last" x="304.0" y="16.6">5.8</text><text class="fin-xlab" x="304.0" y="97.0">26 2Q</text></svg>
-            </div>
-            </div>
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/tesla.com" onerror="this.style.display='none'">테슬라<span class="supp-ticker">TSLA</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
+          </div>
+          <div class="fin-item">
+            <div class="fin-head"><img class="supp-logo" src="https://logo.clearbit.com/oracle.com" onerror="this.style.display='none'">오라클<span class="supp-ticker">ORCL</span></div>
+            <div class="fin-fail needchk">확인 필요 — 첫 자동 갱신 후 표시됩니다</div>
           </div>
         </div>
       <!--FIN:END-->
-      <div class="card-note">최근 8개 분기입니다. 증감은 <b>전년 동기 대비</b>이고, 이익률만 %가 아니라 <b>%p</b>로 적었습니다. 표식 옆 숫자는 단위를 뗀 값(금액은 10억 달러)입니다. 세로축은 0부터가 아니라 값 범위에 맞춰 그려지니 기울기보다 숫자를 보세요.</div>
+      <div class="card-note">최근 8개 분기입니다. 증감은 <b>전년 동기 대비</b>이고, 이익률만 %가 아니라 <b>%p</b>로 적었습니다. 표식 옆 숫자는 단위를 뗀 값(금액은 10억 달러)입니다. 세로축은 0부터가 아니라 값 범위에 맞춰 그려지니 기울기보다 숫자를 보세요. 잉여현금흐름은 영업활동현금흐름에서 설비투자를 뺀 값입니다. 맨 아래 <b>클라우드 부문</b>은 야후 데이터에 없어 회사 공시를 손으로 옮겨 적은 값이라 자동으로 갱신되지 않습니다.</div>
     </div>
 
     <div class="card">
