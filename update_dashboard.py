@@ -24,6 +24,7 @@ index.html 안의 <!--SUPP:섹션:START--> ~ <!--SUPP:섹션:END--> 사이를
 데이터를 못 받아온 종목은 값을 지어내지 않고 "확인 필요"로 표기한다.
 """
 import sys
+import os
 import io
 import json
 import re
@@ -1015,10 +1016,15 @@ INDEXES = [
 FRED_SYMS = [sym for _, _, sym, _, _ in INDEXES if sym.startswith("FRED:")]
 
 
+def _redact(msg):
+    """로그에 API 키가 찍히지 않게 지운다. (깃허브도 시크릿을 가려주지만 이중으로)"""
+    return re.sub(r"api_key=[^&\s]+", "api_key=***", str(msg))
+
+
 def _fred_get(url, timeout):
     req = urllib.request.Request(url, headers={
         "User-Agent": UA,
-        "Accept": "text/csv,text/plain,*/*",
+        "Accept": "application/json,text/csv,text/plain,*/*",
         "Accept-Language": "en-US,en;q=0.9",
         # 압축을 안 받으면 응답이 커져서 느린 회선에서 더 잘 끊긴다
         "Accept-Encoding": "identity",
@@ -1055,22 +1061,43 @@ def _fred_parse_txt(raw):
     return s
 
 
+def _fred_parse_api(raw):
+    """api.stlouisfed.org JSON 형식. 결측치는 값이 "."으로 온다."""
+    obs = json.loads(raw).get("observations")
+    if not obs:
+        raise ValueError("observations 비어 있음")
+    s = pd.Series(pd.to_numeric([o["value"] for o in obs], errors="coerce"),
+                  index=pd.to_datetime([o["date"] for o in obs])).dropna().sort_index()
+    return s
+
+
 def fetch_fred(series_id):
-    """FRED(세인트루이스 연은) 공개 데이터에서 일별 시계열을 받는다. API 키가 필요 없다.
+    """FRED(세인트루이스 연은)에서 일별 시계열을 받는다.
 
     휴장일·미발표일은 값이 "."로 들어오는데, 이런 결측치는 만들어 채우지 않고
     그냥 건너뛴다(dropna). 끝까지 못 받으면 예외를 던지고, 호출부에서 "확인 필요"로
     처리한다 — 값을 지어내지 않는다.
 
-    2026-08-05 Actions 로그에서 "The read operation timed out"으로 하이일드 스프레드가
-    비어 있었다. 차단(403)이 아니라 응답이 느려서 끊긴 것이라, 다음 세 가지를 넣었다.
-      1) cosd로 최근 5년만 요청해서 응답 크기를 줄인다 (전체는 1996년부터라 훨씬 크다)
-      2) 시간 제한을 늘려가며 재시도한다
-      3) csv가 계속 느리면 같은 값을 주는 /data/{id}.txt 주소로 갈아탄다
-    전체 소요가 DEADLINE을 넘기면 더 붙잡지 않고 포기한다 (Actions를 오래 세워두지 않으려고).
+    2026-08-05 두 번의 Actions 실행에서 fred.stlouisfed.org(그래프/다운로드용 주소)가
+    csv·txt 6번 재시도 모두 "The read operation timed out"이었다. 연결은 되는데 응답이
+    안 오고 주소를 바꿔도 같으니, 깃허브 러너에서 그 호스트가 막힌 것으로 본다.
+    그래서 프로그램 접근용 주소인 api.stlouisfed.org를 1순위로 쓴다. 이쪽은 무료 API
+    키가 필요하고, 키는 깃허브 시크릿(FRED_API_KEY)에서 환경변수로 들어온다.
+
+    키가 없으면 예전처럼 csv·txt만 시도한다 — 즉 키를 안 넣어도 스크립트는 안 죽고,
+    하이일드 칸만 "확인 필요"로 남는다.
     """
     cosd = (datetime.date.today() - datetime.timedelta(days=5 * 365)).isoformat()
-    routes = [
+    routes = []
+    api_key = os.environ.get("FRED_API_KEY", "").strip()
+    if api_key:
+        routes.append((
+            f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}"
+            f"&api_key={api_key}&file_type=json&observation_start={cosd}&sort_order=asc",
+            _fred_parse_api, "api"))
+    else:
+        print("  [info] FRED_API_KEY가 없어서 공개 csv 주소만 시도합니다", file=sys.stderr)
+    routes += [
         (f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={cosd}",
          _fred_parse_csv, "csv(5년)"),
         (f"https://fred.stlouisfed.org/data/{series_id}.txt",
@@ -1096,13 +1123,16 @@ def fetch_fred(series_id):
                     print(f"  FRED {series_id}: {attempt}번째 시도({tag}, {timeout}초)에서 성공")
                 return s
             except Exception as e:
-                errors.append(f"{tag}/{timeout}s {type(e).__name__}: {e}")
+                errors.append(_redact(f"{tag}/{timeout}s {type(e).__name__}: {e}"))
         else:
             if time.monotonic() - started < DEADLINE:
                 time.sleep(3)
             continue
         break
-    raise RuntimeError(f"{attempt}회 재시도 실패 — " + " | ".join(errors[-3:]))
+    # API 쪽 오류가 가장 진단에 도움이 되므로(키 오타면 400, 미승인이면 403) 반드시 남긴다
+    api_errs = [e for e in errors if e.startswith("api/")]
+    tail = api_errs[:1] + errors[-2:] if api_errs else errors[-3:]
+    raise RuntimeError(f"{attempt}회 재시도 실패 — " + " | ".join(tail))
 
 
 def num(v, digits):
