@@ -27,7 +27,7 @@ jobs:
           python-version: "3.12"
 
       - name: 의존성 설치
-        run: pip install yfinance pandas
+        run: pip install yfinance pandas lxml
 
       - name: 보조지표 계산 및 index.html 갱신
         run: python update_dashboard.py index.html
