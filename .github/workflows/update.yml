@@ -27,9 +27,15 @@ jobs:
           python-version: "3.12"
 
       - name: 의존성 설치
+        # lxml이 없으면 yfinance가 실적일 페이지를 못 읽어서 일부 종목이 "미확인"으로 남는다.
+        # (2026-08-05 로그: "[warn] AMD earnings_dates: `Import lxml` failed" 외 6건)
         run: pip install yfinance pandas lxml
 
       - name: 보조지표 계산 및 index.html 갱신
+        env:
+          # 하이일드 스프레드용 FRED 무료 API 키. 저장소 Settings > Secrets에 넣어둔 값이
+          # 여기로 들어온다. 키가 없으면 그 칸만 "확인 필요"로 남고 나머지는 정상 동작한다.
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python update_dashboard.py index.html
 
       - name: 변경사항 커밋
