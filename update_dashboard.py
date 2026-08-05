@@ -23,6 +23,7 @@ index.html 안의 <!--SUPP:섹션:START--> ~ <!--SUPP:섹션:END--> 사이를
 데이터를 못 받아온 종목은 값을 지어내지 않고 "확인 필요"로 표기한다.
 """
 import sys
+import io
 import json
 import re
 import datetime
@@ -129,6 +130,8 @@ SECTIONS = {
         ("XLI", "XLI", "ssga.com", "XLI", True),
         ("XLB", "XLB", "ssga.com", "XLB", True),
         ("XLU", "XLU", "ssga.com", "XLU", True),
+        ("MAGS", "MAGS", "roundhillinvestments.com", "MAGS", True),
+        ("SOXX", "SOXX", "ishares.com", "SOXX", True),
     ],
     "macro": [
         ("VIX", "VIX", None, "^VIX", False),
@@ -495,6 +498,8 @@ def short(v, kind):
     """표식 옆에 붙일 짧은 숫자. 단위는 위의 큰 숫자에 이미 적혀 있다."""
     if kind == "pct":
         return f"{v:.1f}"
+    if kind == "count":
+        return f"{v / 1e3:.0f}"
     b = v / 1e9
     return f"{b:.0f}" if abs(b) >= 100 else f"{b:.1f}"
 
@@ -596,11 +601,14 @@ def fin_item(name, ticker, logo, series, cash):
 
     logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
                  f"onerror=\"this.style.display='none'\">")
+    tesla_html = tesla_extra_block(ticker, labs)
     return (
-        '          <div class="fin-item">\n'
-        f'            <div class="fin-head">{logo_html}{name}'
+        '          <details class="fin-item">\n'
+        f'            <summary class="fin-head">{logo_html}{name}'
         f'<span class="supp-ticker">{ticker}</span>'
-        f'<span class="fin-q">{labs[-1]} 기준</span></div>\n'
+        f'<span class="fin-q">{labs[-1]} 기준</span>'
+        '<span class="fin-more">자세히 보기</span></summary>\n'
+        '            <div class="fin-body">\n'
         '            <div class="fin-metrics">\n'
         + fin_metric("매출", revs, labs, bil, pct_span(yoy(revs))) + "\n"
         + fin_metric("영업이익", ops, labs, bil, pct_span(yoy(ops))) + "\n"
@@ -609,8 +617,11 @@ def fin_item(name, ticker, logo, series, cash):
         + fin_metric("설비투자(CAPEX)", caps, labs, bil, cap_chg) + "\n"
         + fin_metric("잉여현금흐름(FCF)", fcfs, labs, bil, fcf_chg) + "\n"
         '            </div>\n'
+        + (tesla_html + "\n" if tesla_html else "")
         + cloud_block(ticker, labs) + "\n"
-        '          </div>'
+        + earncall_block(ticker, labs) + "\n"
+        '            </div>\n'
+        '          </details>'
     )
 
 
@@ -739,6 +750,175 @@ def cloud_block(ticker, labs):
             f'              <div class="fin-cloud-note">{note}</div>\n'
             '            </div>')
 
+
+# --------------------------------------------------------- 테슬라 전용 — 인도량 · FSD 이익
+#
+# 인도량은 테슬라 공식 "분기 생산·인도" 보도자료 숫자를 그대로 옮겨 적었다(자동화 불가 —
+# 야후에 없음). FSD 이익은 테슬라가 어디에도 공시하지 않는다: 10-Q의 이연수익 항목은
+# FSD·커넥티비티·무료 슈퍼차저·OTA 업데이트가 전부 섞인 값이라 "FSD만의 값"이 아니고,
+# 실적콜에서도 가입자 수만 언급할 뿐 매출/이익 금액은 밝히지 않는다. 그래서 지어내지
+# 않고 확인 필요로 둔다 — 인터넷에 도는 "FSD 연매출 5.46억 달러" 같은 수치는 테슬라가
+# 발표한 값이 아니라 외부 블로그의 추정 계산이라 쓰지 않았다.
+TESLA_DELIVERIES = {
+    "24 3Q": 462890, "24 4Q": 495570, "25 1Q": 336681, "25 2Q": 384122,
+    "25 3Q": 497099, "25 4Q": 418227, "26 1Q": 358023, "26 2Q": 480126,
+}
+TESLA_DELIVERY_SRC = "https://ir.tesla.com/#quarterly-disclosure"
+
+
+def cnt(v):
+    return f"{v:,.0f}대"
+
+
+def tesla_extra_block(ticker, labs):
+    if ticker != "TSLA":
+        return ""
+    dels = [TESLA_DELIVERIES.get(q) for q in labs]
+    have = [q for q in labs if TESLA_DELIVERIES.get(q) is not None]
+    stale = ("" if (have and have[-1] == labs[-1]) else
+             f'<span class="needchk">손익 최신 분기({labs[-1]})보다 이전 값</span> · ')
+    metrics = fin_metric("분기 인도량", dels, labs, cnt, pct_span(yoy(dels)), kind="count")
+    metrics += "\n" + fin_metric(
+        "FSD(완전자율주행) 이익", [None] * len(labs), labs, cnt,
+        '<span class="needchk">확인 필요</span>', kind="count")
+    note = (f'{stale}인도량 기준 {have[-1] if have else "확인 필요"} · 테슬라 공식 분기 생산·인도 '
+            f'보도자료를 손으로 옮겨 적은 값이라 자동 갱신되지 않습니다 · '
+            f'<a href="{TESLA_DELIVERY_SRC}" target="_blank" rel="noopener">테슬라 인도량 발표</a>'
+            ' · FSD 이익은 테슬라가 별도로 공시하지 않습니다(이연수익 항목은 FSD·커넥티비티·'
+            '슈퍼차저·OTA가 섞인 값이라 FSD 단독 수치가 아님) — 그래서 확인 필요로 둡니다.')
+    return ('            <div class="fin-cloud">\n'
+            '              <div class="fin-cloud-head">테슬라 전용 지표 — 인도량 · FSD</div>\n'
+            '              <div class="fin-cmetrics">\n' + metrics + "\n"
+            '              </div>\n'
+            f'              <div class="fin-cloud-note">{note}</div>\n'
+            '            </div>')
+
+
+# --------------------------------------------------------------- 어닝콜 요약 (수동 관리)
+#
+# 실적발표 콜(어닝콜)에서 경영진이 밝힌 가이던스·전략 코멘트 등은 손익계산서 숫자에
+# 안 나오므로 손으로 요약해 둔다. 각 종목 카드를 펼치면 맨 아래에 붙는다. 새 분기 콜이
+# 끝나면 이 표를 새로 채워야 하고, 안 채우면 "이전 어닝콜"이라고 화면에 표시된다.
+# ("직접 인용"=원문 그대로 옮긴 발언, "요약"=콜 내용을 손으로 정리한 내용)
+EARNCALL = {
+    "AMZN": {"q": "26 2Q", "date": "2026-07-30",
+        "guide": '2026년 CAPEX 가이던스 <b>$200B → $220B 상향</b> · 발표 다음날 주가 +15.3%',
+        "lines": [
+            ("quote", '앤디 재시: "2026년 현금 CAPEX로 약 2,200억 달러를 쓰게 될 것으로 봅니다."'),
+            ("quote", '재시: "2026년 수요를 전부 감당할 만큼의 용량은 확보하지 못할 것입니다."'),
+            ("summary", "상향의 주된 이유로 메모리 가격 상승을 지목했습니다."),
+        ],
+        "src": "https://www.investing.com/news/transcripts/earnings-call-transcript-amazon-tops-q2-2026-estimates-as-aws-growth-accelerates-93CH-4826442",
+        "srctxt": "Investing.com 실적 콜 요약"},
+    "GOOGL": {"q": "26 2Q", "date": "2026-07-22",
+        "guide": '2026년 가이던스 <b>$180~190B → $195~205B 상향</b> · 발표 다음날 주가 −7.1%',
+        "lines": [
+            ("summary", "CFO 아나트 아슈케나지는 투자 확대에 따른 감가상각비 부담이 커진다는 점을 짚었습니다."),
+            ("quote", 'CEO 순다르 피차이: AI 기회는 아직 "아주 초기 국면(very early innings)"이라고 표현했습니다.'),
+            ("summary", "상장 이후 처음으로 잉여현금흐름이 마이너스로 돌아섰습니다."),
+        ],
+        "src": "https://www.investing.com/news/transcripts/earnings-call-transcript-alphabet-beats-q2-2026-estimates-shares-fall-on-capex-surge-93CH-4807140",
+        "srctxt": "Investing.com 실적 콜 요약"},
+    "MSFT": {"q": "26 2Q", "date": "2026-07-29",
+        "guide": '2026년(달력) CAPEX 전망 <b>약 $190B → 약 $175B</b>. 단, 투자를 줄인 게 아니라 '
+                 '<b>서버 내용연수를 15년→25년으로 바꾼 회계 변경</b> 영향입니다 · '
+                 '다음 분기는 "500억 달러 이상" 안내 · 주가 약 +8%',
+        "lines": [
+            ("summary", "사티아 나델라는 올해 신규 데이터센터 31곳을 열어 총 88곳이 된다고 밝혔습니다."),
+            ("quote", 'CFO 에이미 후드: "수요 환경이 바뀌면, 가장 큰 비중을 차지하는 항목의 속도를 늦추면 됩니다."'),
+            ("summary", "2분기 실제 집행액은 현금 기준 $35.8B, 금융리스 포함 $41.0B입니다."),
+        ],
+        "src": "https://www.investing.com/news/transcripts/earnings-call-transcript-microsoft-q4-2026-beats-forecasts-stock-jumps-8-93CH-4822020",
+        "srctxt": "Investing.com 실적 콜 요약"},
+    "META": {"q": "26 2Q", "date": "2026-07-29",
+        "guide": '2026년 가이던스 <b>$125~145B → $130~145B</b>. 상단은 그대로고 하단만 올라간 '
+                 '<b>범위 축소</b>입니다(일부 언론의 "대폭 상향" 표현은 부정확) · 주가 약 −7~10%',
+        "lines": [
+            ("quote", '마크 저커버그: "그 위에 지능을 쌓아 올릴 수 있는데 단기 이익을 위해 연산 자원을 '
+                      '전부 파는 건 어리석은 일입니다."'),
+            ("summary", "잉여현금흐름이 $784M까지 줄었고, $24.9B 규모 회사채를 발행했습니다."),
+            ("summary", "자사주 매입을 중단했습니다."),
+        ],
+        "src": "https://www.investing.com/news/transcripts/earnings-call-transcript-meta-misses-eps-in-q2-2026-as-stock-sinks-after-hours-93CH-4821910",
+        "srctxt": "Investing.com 실적 콜 요약"},
+    "NVDA": {"q": "26 2Q", "date": "2026-05-20",
+        "guide": '자체 CAPEX 가이던스는 제시하지 않습니다(설비를 직접 짓는 회사가 아니라 고객사 '
+                 '투자의 수혜 쪽입니다) · 해당 분기 집행액 $1.757B',
+        "lines": [
+            ("quote", '젠슨 황: "인류 역사상 가장 큰 인프라 확장인 AI 팩토리 구축이 놀라운 속도로 '
+                      '가속되고 있습니다."'),
+            ("summary", "중국向 H200 관련 매출은 가이던스에서 완전히 배제했습니다 — 수입 허용 여부가 불확실합니다."),
+            ("summary", "이 어닝콜은 7월 실적 시즌이 아니라 5월 발표분(엔비디아 회계상 FY27 1분기)이라 "
+                        "시점이 다릅니다 — 8월 26일 발표 후 갱신이 필요합니다."),
+        ],
+        "src": "https://www.fool.com/earnings/call-transcripts/2026/05/20/nvidia-nvda-q1-2027-earnings-transcript/",
+        "srctxt": "The Motley Fool 실적 콜 전문"},
+    "AAPL": {"q": "26 2Q", "date": "2026-07-30",
+        "guide": 'CAPEX 가이던스를 제시하지 않습니다 · 9개월 누계 $6.799B로 전년 동기 $9.473B보다 '
+                 '<b>감소</b> · 주가 약 −6.7%',
+        "lines": [
+            ("quote", '팀 쿡: "우리는 운영비를 늘려왔고 AI 전반에 더 많이 쓰고 있습니다. 꽤 많이요."'),
+            ("summary", "다른 빅테크와 달리 자체 데이터센터 대신 외부 클라우드를 많이 쓰는 구조라 "
+                        "CAPEX 규모 자체가 작습니다."),
+            ("summary", "이번이 팀 쿡 CEO의 마지막 실적콜이었습니다 — 후임 CEO 존 터너스에게 신뢰를 표명했습니다."),
+        ],
+        "src": "https://sixcolors.com/post/2026/07/one-last-time-this-is-tim-transcript-of-apples-q3-2026-financial-call/",
+        "srctxt": "Six Colors 실적 콜 전문"},
+    "TSLA": {"q": "26 2Q", "date": "2026-07-22",
+        "guide": '2026년 CAPEX 가이던스 <b>$25B 이상 유지</b>(변경 없음) · 2분기 집행액 $5.8B로 '
+                 '전년 대비 +142%',
+        "lines": [
+            ("quote", '일론 머스크: "너무 낭비가 되지 않는 선에서, 쓸 수 있는 한 최대한 빨리 CAPEX를 '
+                      '집행해야 합니다."'),
+            ("quote", 'CFO 바이바브 타네자: "올해는 대규모 CAPEX의 해입니다."'),
+            ("summary", "로보택시는 6개 도시에서 38만 마일 이상 무감독 주행, \"주목할 만한 사고 0건\"을 "
+                        "기록했습니다 — 머스크는 확장 속도보다 신뢰성을 우선한다고 강조했습니다."),
+        ],
+        "src": "https://www.investing.com/news/transcripts/earnings-call-transcript-tesla-q2-2026-revenue-beats-eps-misses-as-stock-falls-93CH-4807216",
+        "srctxt": "Investing.com 실적 콜 요약"},
+    "ORCL": {"q": "26 2Q", "date": "2026-06-10",
+        "guide": 'FY27 매출 성장률 가이던스 <b>고정환율 기준 +34%</b> · 1분기 클라우드 매출 성장률 '
+                 '58~64% 제시',
+        "lines": [
+            ("summary", "잔여계약이행의무(RPO)가 전년비 363% 급증한 6,380억 달러로 사상 최대치를 "
+                        "기록했습니다 — 4분기에만 670억 달러 규모의 AI 인프라 계약을 체결했습니다."),
+            ("summary", "FY27 순현금 CapEx 지출은 약 700억 달러로 예상되며, GPU 가동률 97.5%·갱신율 "
+                        "92%를 기록했습니다."),
+        ],
+        "src": "https://www.investing.com/news/transcripts/earnings-call-transcript-oracle-q4-2026-earnings-beat-expectations-despite-stock-dip-93CH-4736322",
+        "srctxt": "Investing.com 실적 콜 요약"},
+}
+
+EARNCALL_DISCLAIMER = ("아마존·알파벳·마이크로소프트·메타는 회사 원문에 직접 접근하지 못해 제3자 "
+                       "녹취를 거친 인용입니다 — 중요한 판단에는 출처의 회사 IR 원문을 확인하세요.")
+
+
+def earncall_block(ticker, labs):
+    e = EARNCALL.get(ticker)
+    if not e:
+        return ('            <div class="fin-earncall">\n'
+                '              <div class="fin-cloud-head">어닝콜 요약</div>\n'
+                '              <div class="fin-cloud-note needchk">확인 필요 — '
+                '아직 요약을 정리하지 못했습니다</div>\n'
+                '            </div>')
+    stale = ("" if (labs and e["q"] == labs[-1]) else
+             f'<span class="needchk">손익 최신 분기({labs[-1] if labs else "확인 필요"})보다 '
+             '이전 어닝콜입니다</span> · ')
+    lines_html = "".join(
+        f'<li><span class="call-tag{" quote" if tag == "quote" else ""}">'
+        f'{"직접 인용" if tag == "quote" else "요약"}</span> {text}</li>'
+        for tag, text in e["lines"]
+    )
+    return ('            <div class="fin-earncall">\n'
+            f'              <div class="fin-cloud-head">어닝콜 요약 — {e["q"]} ({e["date"]} 발표)</div>\n'
+            f'              <div class="call-guide">{e["guide"]}</div>\n'
+            f'              <ul class="call-lines">{lines_html}</ul>\n'
+            f'              <div class="fin-cloud-note">{stale}자동 갱신되지 않는 수기 요약입니다. '
+            f'{EARNCALL_DISCLAIMER} · '
+            f'<a href="{e["src"]}" target="_blank" rel="noopener">{e["srctxt"]}</a></div>\n'
+            '            </div>')
+
+
 def build_fin():
     items, ok, cok = [], 0, 0
     for name, ticker, logo in BIGTECH:
@@ -761,6 +941,8 @@ def build_fin():
 # ------------------------------------------------------------- 주요 지수 카드
 
 # (표시이름, 짧은라벨, 야후심볼, 트레이딩뷰심볼, 소수점자리)
+# 2년물 금리·하이일드 스프레드는 야후에 없어 FRED(세인트루이스 연은) 공개 CSV에서 받는다.
+# 심볼 자리에 "FRED:xxx"를 적어두면 fetch_fred()가 별도로 받아 closes 딕셔너리에 합쳐준다.
 INDEXES = [
     ("S&amp;P500", "SPX", "^GSPC", "FOREXCOM:SPXUSD", 2),
     ("나스닥 종합", "IXIC", "^IXIC", "NASDAQ:IXIC", 2),
@@ -770,8 +952,35 @@ INDEXES = [
     ("코스닥", "KOSDAQ", "^KQ11", "KRX:KOSDAQ", 2),
     ("원달러 환율", "USDKRW", "KRW=X", "FX_IDC:USDKRW", 2),
     ("미 10년물 금리", "US10Y", "^TNX", "TVC:US10Y", 3),
+    # "매크로·심리" 탭에서 이미 쓰고 있는 것과 같은 심볼(2년물 국채 수익률 선물)로 맞춘다.
+    ("미 2년물 금리", "US02Y", "2YY=F", "TVC:US02Y", 3),
     ("달러 인덱스", "DXY", "DX-Y.NYB", "TVC:DXY", 2),
+    ("하이일드 스프레드", "HY OAS", "FRED:BAMLH0A0HYM2", "FRED:BAMLH0A0HYM2", 2),
 ]
+
+FRED_SYMS = [sym for _, _, sym, _, _ in INDEXES if sym.startswith("FRED:")]
+
+
+def fetch_fred(series_id):
+    """FRED(세인트루이스 연은) 공개 CSV에서 일별 시계열을 받는다. API 키가 필요 없다.
+
+    휴장일·미발표일은 값이 "."로 들어오는데, 이런 결측치는 만들어 채우지 않고
+    그냥 건너뛴다(dropna). 네트워크나 형식 문제가 생기면 예외를 던지고, 호출부에서
+    "확인 필요"로 처리한다.
+    """
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read().decode("utf-8")
+    df = pd.read_csv(io.StringIO(raw))
+    date_col, val_col = df.columns[0], df.columns[1]
+    df[date_col] = pd.to_datetime(df[date_col])
+    df[val_col] = pd.to_numeric(df[val_col], errors="coerce")
+    df = df.dropna(subset=[val_col]).set_index(date_col).sort_index()
+    s = df[val_col]
+    if s.empty:
+        raise ValueError(f"FRED {series_id}: 빈 시계열")
+    return s
 
 
 def num(v, digits):
@@ -1083,12 +1292,46 @@ def build_earn_list(rows):
     return "\n".join(out)
 
 
+# --------------------------------------------------- 거시 이벤트 (FOMC·BOJ·한은·테슬라 인도량)
+#
+# 회사별 실적일과 달리 이 날짜들은 야후에 없어서 손으로 적어 둔다. 전부 각 기관
+# 공식 발표 기준이며, 미국(FOMC)·일본(BOJ)은 한국시간(KST)으로 환산했다.
+#   - FOMC: 회의 이틀째 현지시각 오후 2시(14:00 ET) 발표 → 서머타임(EDT, UTC-4)이면
+#     KST로 다음날 03:00, 이미 해제된 12월(EST, UTC-5)이면 다음날 04:00.
+#   - BOJ: 일본도 한국과 같은 UTC+9라 환산이 필요 없다. 회의 이틀째 발표.
+#   - 한국은행: 이미 KST.
+#   - 테슬라 인도량: 공식 사전 예고가 없다. 최근 분기(26년 1·2분기)가 전부 분기
+#     마감 이틀 뒤(4/2, 7/2)에 나온 걸 근거로 다음 분기도 같은 패턴일 거라 "예상"
+#     표시한다(별표 처리, 확정 아님).
+# 새해로 넘어가면(특히 FOMC 1월 회의 전) 다음 해 일정을 새로 찾아 추가해야 한다 —
+# 안 그러면 그 달은 조용히 칩이 안 뜨는 것뿐이라(에러가 안 남) 놓치기 쉽다.
+MACRO_EVENTS = [
+    # (날짜, 칩에 쓸 짧은 라벨, 확정 여부)
+    (datetime.date(2026, 8, 27), "한은 금통위", True),
+    (datetime.date(2026, 9, 17), "FOMC", True),
+    (datetime.date(2026, 9, 18), "BOJ", True),
+    (datetime.date(2026, 10, 2), "테슬라 인도량*", False),
+    (datetime.date(2026, 10, 22), "한은 금통위", True),
+    (datetime.date(2026, 10, 29), "FOMC", True),
+    (datetime.date(2026, 10, 30), "BOJ", True),
+    (datetime.date(2026, 11, 26), "한은 금통위", True),
+    (datetime.date(2026, 12, 10), "FOMC", True),
+    (datetime.date(2026, 12, 18), "BOJ", True),
+]
+
+
 def build_earn_cal(rows):
-    """이번 달과 다음 달 달력을 그린다. 칩은 짧은 라벨만, 미확정이면 * 를 붙인다."""
+    """이번 달과 다음 달 달력을 그린다. 칩은 짧은 라벨만, 미확정이면 * 를 붙인다.
+
+    회사 실적(주황 칩)과 FOMC·BOJ·한은·테슬라 인도량 같은 거시 이벤트(파란 칩)를
+    같은 칸에 같이 그린다.
+    """
     import calendar as _cal
     by_day = {}
     for d, _name, short, confirmed in rows:
-        by_day.setdefault(d, []).append(short + ("" if confirmed else "*"))
+        by_day.setdefault(d, []).append((short + ("" if confirmed else "*"), "earn"))
+    for d, short, confirmed in MACRO_EVENTS:
+        by_day.setdefault(d, []).append((short if confirmed else short, "macro"))
 
     today = datetime.datetime.now(KST).date()
     months, y, m = [], today.year, today.month
@@ -1102,7 +1345,10 @@ def build_earn_cal(rows):
             cells.append(f'<div class="cal-cell empty"><div class="cal-daynum">{n}</div></div>')
         for day in range(1, ndays + 1):
             d = datetime.date(y, m, day)
-            chips = "".join(f'<div class="cal-chip">{c}</div>' for c in by_day.get(d, []))
+            chips = "".join(
+                f'<div class="cal-chip{" macro" if kind == "macro" else ""}">{c}</div>'
+                for c, kind in by_day.get(d, [])
+            )
             cls = "cal-cell today" if d == today else "cal-cell"
             cells.append(f'<div class="{cls}"><div class="cal-daynum">{day}</div>{chips}</div>')
         while len(cells) % 7:
@@ -1135,9 +1381,10 @@ def splice(html, marker, body):
 
 def main(html_path):
     all_syms = sorted(
-        {sym for rows in SECTIONS.values() for _, _, _, sym, _ in rows}
-        | {sym for _, _, sym, _, _ in INDEXES}       # 개요 탭 주요 지수 카드
-        | {KR_BOND_ETF}                              # 한국 심리지수 계산용
+        ({sym for rows in SECTIONS.values() for _, _, _, sym, _ in rows}
+         | {sym for _, _, sym, _, _ in INDEXES}      # 개요 탭 주요 지수 카드
+         | {KR_BOND_ETF})                            # 한국 심리지수 계산용
+        - set(FRED_SYMS)   # FRED 심볼은 야후가 아니라 fetch_fred()로 따로 받는다
     )
     print(f"downloading {len(all_syms)} symbols...")
     # auto_adjust=True : 액면분할·배당을 보정한 수정주가로 받는다.
@@ -1152,6 +1399,13 @@ def main(html_path):
             if s.dropna().empty:
                 raise ValueError("empty")
             closes[sym] = s
+        except Exception as e:
+            print(f"  [warn] no data for {sym}: {e}", file=sys.stderr)
+
+    print(f"downloading {len(FRED_SYMS)} FRED series...")
+    for sym in FRED_SYMS:
+        try:
+            closes[sym] = fetch_fred(sym.split(":", 1)[1])
         except Exception as e:
             print(f"  [warn] no data for {sym}: {e}", file=sys.stderr)
 
@@ -1203,7 +1457,7 @@ def main(html_path):
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"updated {ok_count}/{len(SECTIONS)} sections, "
-          f"{len(closes)}/{len(all_syms)} symbols fetched, "
+          f"{len(closes)}/{len(all_syms) + len(FRED_SYMS)} symbols fetched, "
           f"idx={'ok' if idx_ok else 'MARKER MISSING'}, "
           f"earn={'ok' if ecal_ok and elist_ok else 'MARKER MISSING'}({len(earn_rows)}건), "
           f"fng={'ok' if fng_ok else 'MARKER MISSING'}, "
