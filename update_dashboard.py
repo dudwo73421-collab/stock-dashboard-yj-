@@ -6,8 +6,9 @@ index.html 안의 <!--SUPP:섹션:START--> ~ <!--SUPP:섹션:END--> 사이를
 야후 파이낸스 일봉 데이터로 계산한 최신 값으로 갈아끼운다.
 
 계산 지표:
-  일간      : 직전 거래일 종가 대비 현재 종가
-  고점대비  : 최근 52주(252거래일) 고가 종가 대비 현재 종가
+  일간          : 직전 거래일 종가 대비 현재 종가
+  52주 고점대비 : 최근 52주(252거래일) 최고 종가 대비 현재 종가
+  사상최고 대비 : 상장 이후 전체 기간 최고 종가 대비 현재 종가
   주간      : 5거래일 전 종가 대비
   26년 YTD  : 전년도 마지막 종가 대비
   연속      : 연속 상승/하락 일수
@@ -28,6 +29,7 @@ import json
 import re
 import datetime
 import math
+import time
 import urllib.request
 
 import pandas as pd
@@ -160,7 +162,16 @@ def rsi14(close: pd.Series) -> float:
     return float(val.iloc[-1])
 
 
-def compute(close: pd.Series, rate: bool):
+def compute(close: pd.Series, rate: bool, ath: float | None = None):
+    """보조지표 계산. ath는 상장 이후 전체 기간의 최고 종가(사상 최고).
+
+    "고점대비"를 두 가지로 나눠서 낸다.
+      - 52주 고점대비 : 최근 252거래일(약 1년) 종가 중 최고값 대비
+      - 사상최고 대비 : 상장 이후 전체 종가 중 최고값 대비
+    둘을 합쳐 놓으면 1년보다 더 전에 고점을 찍고 크게 무너진 종목(예: 유나이티드
+    헬스는 2024-11 $609 → 이후 급락)이 실제보다 덜 빠진 것처럼 보인다. 그래서
+    분리한다. ath를 못 받아온 경우에는 만들어 채우지 않고 None을 돌려준다.
+    """
     close = close.dropna()
     if len(close) < 30:
         raise ValueError("not enough data")
@@ -170,6 +181,12 @@ def compute(close: pd.Series, rate: bool):
 
     high52 = float(close.tail(252).max())
     drawdown = (last / high52 - 1) * 100
+
+    ath_dd = None
+    if ath is not None and ath > 0:
+        # 전체 기간 최고값은 최근 1년 최고값보다 낮을 수 없다. 낮게 나오면
+        # 전체 기간 시세를 제대로 못 받은 것이므로 값을 쓰지 않는다.
+        ath_dd = (last / max(ath, high52) - 1) * 100
 
     week = (last / float(close.iloc[-6]) - 1) * 100 if len(close) >= 6 else None
 
@@ -200,7 +217,7 @@ def compute(close: pd.Series, rate: bool):
         ma200 = float(close.tail(200).mean())
         score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
         rating = RATING_LABEL[score]
-    return day, drawdown, week, ytd, (streak, direction), rsi
+    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi
 
 
 def pct_cell(v):
@@ -219,25 +236,27 @@ def streak_cell(sd):
     return f'<td class="down">{streak}일 하락</td>'
 
 
-def make_row(name, label, logo, sym, rate, closes):
+def make_row(name, label, logo, sym, rate, closes, aths=None):
+    aths = aths or {}
     logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
                  f"onerror=\"this.style.display='none'\">") if logo else ""
     name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span></td>'
     try:
         close = closes[sym]
-        day, drawdown, week, ytd, sd, rsi = compute(close, rate)
+        day, dd52, ddath, week, ytd, sd, rsi = compute(close, rate, aths.get(sym))
         day_cell = pct_cell(day)
-        dd_cell = pct_cell(drawdown)
+        dd_cell = pct_cell(dd52)
+        ath_cell = pct_cell(ddath)
         wk_cell = pct_cell(week)
         ytd_cell = pct_cell(ytd)
         st_cell = streak_cell(sd)
         rsi_cell = f"<td>{rsi:.1f}</td>"
-        return (f"          <tr>{name_td}{day_cell}{dd_cell}{wk_cell}{ytd_cell}"
-                f"{st_cell}{rsi_cell}</tr>")
+        return (f"          <tr>{name_td}{day_cell}{dd_cell}{ath_cell}{wk_cell}"
+                f"{ytd_cell}{st_cell}{rsi_cell}</tr>")
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
-        return f"          <tr>{name_td}{nc}{nc}{nc}{nc}{nc}{nc}</tr>"
+        return f"          <tr>{name_td}{nc * 7}</tr>"
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
@@ -246,10 +265,33 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
 
-def get_json(url, timeout=20):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+def get_json(url, timeout=20, extra_headers=None, retries=3):
+    """JSON을 받아온다. 실패하면 잠깐 쉬었다가 다시 시도한다.
+
+    CNN 쪽은 브라우저가 아닌 요청을 걸러내서 418을 돌려주는 때가 있다. 그래서
+    브라우저가 실제로 보내는 헤더(Referer/Origin/sec-fetch-*)를 같이 붙인다.
+    끝까지 실패하면 예외를 던지고, 호출부에서 "확인 필요"로 처리한다.
+    """
+    headers = {
+        "User-Agent": UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "identity",
+        "Connection": "close",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    last = None
+    for i in range(retries):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8", "replace"))
+        except Exception as e:
+            last = e
+            if i < retries - 1:
+                time.sleep(2 * (i + 1))
+    raise last
 
 
 def fng_class(score):
@@ -295,8 +337,20 @@ def fng_item_fail(label, note):
 CNN_KO = [(25, "극도의 공포"), (45, "공포"), (56, "중립"), (76, "탐욕"), (101, "극도의 탐욕")]
 
 
+# CNN은 자기 사이트에서 온 요청만 받아준다. 이 헤더가 없으면 HTTP 418로 막힌다.
+# (2026-08-05 Actions 로그: "[warn] 미국 주식 (CNN) 공포탐욕지수: HTTP Error 418")
+CNN_HEADERS = {
+    "Referer": "https://edition.cnn.com/",
+    "Origin": "https://edition.cnn.com",
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+}
+
+
 def cnn_fng():
-    d = get_json("https://production.dataviz.cnn.io/index/fearandgreed/graphdata")["fear_and_greed"]
+    d = get_json("https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+                 extra_headers=CNN_HEADERS)["fear_and_greed"]
     score = int(round(float(d["score"])))
     rating = next(ko for bound, ko in CNN_KO if score < bound)
 
@@ -961,26 +1015,94 @@ INDEXES = [
 FRED_SYMS = [sym for _, _, sym, _, _ in INDEXES if sym.startswith("FRED:")]
 
 
+def _fred_get(url, timeout):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": UA,
+        "Accept": "text/csv,text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        # 압축을 안 받으면 응답이 커져서 느린 회선에서 더 잘 끊긴다
+        "Accept-Encoding": "identity",
+        "Connection": "close",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", "replace")
+
+
+def _fred_parse_csv(raw):
+    """fredgraph.csv 형식: 첫 줄이 헤더, 결측치는 "."."""
+    df = pd.read_csv(io.StringIO(raw))
+    if df.shape[1] < 2:
+        raise ValueError("CSV 열 부족")
+    date_col, val_col = df.columns[0], df.columns[1]
+    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+    df[val_col] = pd.to_numeric(df[val_col], errors="coerce")
+    df = df.dropna(subset=[date_col, val_col]).set_index(date_col).sort_index()
+    return df[val_col]
+
+
+def _fred_parse_txt(raw):
+    """fred.stlouisfed.org/data/{id}.txt 형식: 설명 블록 뒤에 "날짜  값" 줄이 이어진다."""
+    dates, vals = [], []
+    for line in raw.splitlines():
+        m = re.match(r"^\s*(\d{4}-\d{2}-\d{2})\s+(\S+)\s*$", line)
+        if m:
+            dates.append(m.group(1))
+            vals.append(m.group(2))
+    if not dates:
+        raise ValueError("txt에서 날짜 줄을 못 찾음")
+    s = pd.Series(pd.to_numeric(vals, errors="coerce"),
+                  index=pd.to_datetime(dates)).dropna().sort_index()
+    return s
+
+
 def fetch_fred(series_id):
-    """FRED(세인트루이스 연은) 공개 CSV에서 일별 시계열을 받는다. API 키가 필요 없다.
+    """FRED(세인트루이스 연은) 공개 데이터에서 일별 시계열을 받는다. API 키가 필요 없다.
 
     휴장일·미발표일은 값이 "."로 들어오는데, 이런 결측치는 만들어 채우지 않고
-    그냥 건너뛴다(dropna). 네트워크나 형식 문제가 생기면 예외를 던지고, 호출부에서
-    "확인 필요"로 처리한다.
+    그냥 건너뛴다(dropna). 끝까지 못 받으면 예외를 던지고, 호출부에서 "확인 필요"로
+    처리한다 — 값을 지어내지 않는다.
+
+    2026-08-05 Actions 로그에서 "The read operation timed out"으로 하이일드 스프레드가
+    비어 있었다. 차단(403)이 아니라 응답이 느려서 끊긴 것이라, 다음 세 가지를 넣었다.
+      1) cosd로 최근 5년만 요청해서 응답 크기를 줄인다 (전체는 1996년부터라 훨씬 크다)
+      2) 시간 제한을 늘려가며 재시도한다
+      3) csv가 계속 느리면 같은 값을 주는 /data/{id}.txt 주소로 갈아탄다
+    전체 소요가 DEADLINE을 넘기면 더 붙잡지 않고 포기한다 (Actions를 오래 세워두지 않으려고).
     """
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        raw = resp.read().decode("utf-8")
-    df = pd.read_csv(io.StringIO(raw))
-    date_col, val_col = df.columns[0], df.columns[1]
-    df[date_col] = pd.to_datetime(df[date_col])
-    df[val_col] = pd.to_numeric(df[val_col], errors="coerce")
-    df = df.dropna(subset=[val_col]).set_index(date_col).sort_index()
-    s = df[val_col]
-    if s.empty:
-        raise ValueError(f"FRED {series_id}: 빈 시계열")
-    return s
+    cosd = (datetime.date.today() - datetime.timedelta(days=5 * 365)).isoformat()
+    routes = [
+        (f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={cosd}",
+         _fred_parse_csv, "csv(5년)"),
+        (f"https://fred.stlouisfed.org/data/{series_id}.txt",
+         _fred_parse_txt, "txt"),
+        (f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}",
+         _fred_parse_csv, "csv(전체)"),
+    ]
+    DEADLINE = 150  # 초
+    started = time.monotonic()
+    errors = []
+    attempt = 0
+    for timeout in (20, 40, 60):
+        for url, parse, tag in routes:
+            if time.monotonic() - started > DEADLINE:
+                errors.append(f"{DEADLINE}초 초과로 중단")
+                break
+            attempt += 1
+            try:
+                s = parse(_fred_get(url, timeout))
+                if s.empty:
+                    raise ValueError("빈 시계열")
+                if attempt > 1:
+                    print(f"  FRED {series_id}: {attempt}번째 시도({tag}, {timeout}초)에서 성공")
+                return s
+            except Exception as e:
+                errors.append(f"{tag}/{timeout}s {type(e).__name__}: {e}")
+        else:
+            if time.monotonic() - started < DEADLINE:
+                time.sleep(3)
+            continue
+        break
+    raise RuntimeError(f"{attempt}회 재시도 실패 — " + " | ".join(errors[-3:]))
 
 
 def num(v, digits):
@@ -1402,6 +1524,27 @@ def main(html_path):
         except Exception as e:
             print(f"  [warn] no data for {sym}: {e}", file=sys.stderr)
 
+    # 사상 최고가(전체 기간 최고 종가)는 위의 15개월치로는 알 수 없어서 따로 받는다.
+    # 여기서 실패해도 표 전체가 죽으면 안 되므로, 실패하면 aths를 비워 두고
+    # "사상최고 대비" 칸만 확인 필요로 남긴다 — 값을 만들어 채우지 않는다.
+    print("downloading all-time history for 사상최고...")
+    aths = {}
+    try:
+        hist = yf.download(all_syms, period="max", interval="1d",
+                           auto_adjust=True, progress=False, group_by="ticker",
+                           threads=True)
+        for sym in all_syms:
+            try:
+                s = (hist[sym]["Close"] if isinstance(hist.columns, pd.MultiIndex)
+                     else hist["Close"]).dropna()
+                if not s.empty:
+                    aths[sym] = float(s.max())
+            except Exception:
+                pass
+        print(f"  사상최고 확보 {len(aths)}/{len(all_syms)}")
+    except Exception as e:
+        print(f"  [warn] 전체 기간 시세 실패: {e}", file=sys.stderr)
+
     print(f"downloading {len(FRED_SYMS)} FRED series...")
     for sym in FRED_SYMS:
         try:
@@ -1414,7 +1557,7 @@ def main(html_path):
 
     ok_count = 0
     for section, rows in SECTIONS.items():
-        body = "\n".join(make_row(*row, closes) for row in rows)
+        body = "\n".join(make_row(*row, closes, aths) for row in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
         i, j = html.find(start), html.find(end)
