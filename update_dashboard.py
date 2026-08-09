@@ -5,14 +5,18 @@
 index.html 안의 <!--SUPP:섹션:START--> ~ <!--SUPP:섹션:END--> 사이를
 야후 파이낸스 일봉 데이터로 계산한 최신 값으로 갈아끼운다.
 
-계산 지표:
+계산 지표 (열 순서 = 화면 순서, 기간이 이어지도록 일간→주간→YTD를 붙여 놓았다):
   일간          : 직전 거래일 종가 대비 현재 종가
+  주간          : 5거래일 전 종가 대비
+  26년 YTD      : 전년도 마지막 종가 대비
   52주 고점대비 : 최근 52주(252거래일) 최고 종가 대비 현재 종가
   사상최고 대비 : 상장 이후 전체 기간 최고 종가 대비 현재 종가
-  주간      : 5거래일 전 종가 대비
-  26년 YTD  : 전년도 마지막 종가 대비
   연속      : 연속 상승/하락 일수
   RSI(14)   : Wilder 방식
+  이평선    : 5·20·60·120일 이동평균선 위(▲)/아래(▼), 데이터 부족은 –
+
+개요 탭 지수 카드(<!--IDX-->)를 펼치면 같은 지표가 나온다 — 없어진 매크로·심리
+탭의 표가 하던 역할이다.
 
 또 <!--FNG:START--> ~ <!--FNG:END--> 사이에 공포·탐욕 지수 두 개를 갈아끼운다.
   미국 주식 : CNN Fear & Greed Index
@@ -37,6 +41,13 @@ import pandas as pd
 import yfinance as yf
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
+
+# 사상최고 값을 저장해 두는 파일. 저장소 루트에 같이 커밋된다.
+# 전체 기간(period="max") 조회는 102종목이라 4분 가까이 걸려서, 2시간마다 돌 때마다
+# 매번 받으면 야후 쪽에 부담이 크다. 그래서 하루 한 번만 새로 받고, 나머지 실행에서는
+# 저장된 값과 최근 15개월치 중 큰 값을 쓴다 — 15개월 창이 하루 간격보다 훨씬 넓으니
+# 이렇게 이어붙여도 값이 새지 않는다(근사가 아니라 정확히 같은 값).
+ATH_CACHE = "ath_cache.json"
 
 # (표시이름, 티커라벨, 로고도메인 또는 None, 야후심볼, 기술등급 계산 여부)
 SECTIONS = {
@@ -136,17 +147,10 @@ SECTIONS = {
         ("MAGS", "MAGS", "roundhillinvestments.com", "MAGS", True),
         ("SOXX", "SOXX", "ishares.com", "SOXX", True),
     ],
-    "macro": [
-        ("VIX", "VIX", None, "^VIX", False),
-        ("美10년물", "US10Y", None, "^TNX", False),
-        ("美2년물", "US02Y", None, "2YY=F", False),
-        ("달러인덱스", "DXY", None, "DX-Y.NYB", False),
-        ("WTI 원유", "USOIL", None, "CL=F", True),
-        ("금", "GOLD", None, "GC=F", True),
-        ("비트코인", "BTC", "bitcoin.org", "BTC-USD", True),
-        ("원달러 환율", "USDKRW", None, "KRW=X", True),
-    ],
 }
+# 매크로·심리 탭은 없앴다(2026-08-08, 영재님 요청). 달러인덱스·원달러·WTI·브렌트·금·
+# 비트코인은 개요 탭의 지수 카드(INDEXES)로 옮겨서, 카드를 누르면 일간·주간·YTD 같은
+# 보조지표가 차트와 같이 펼쳐진다. 국채 금리 카드와 경제 캘린더도 개요 탭으로 갔다.
 
 RATING_LABEL = {4: ("Strong Buy", "up"), 3: ("Buy", "up"), 2: ("Neutral", "needchk"),
                 1: ("Sell", "down"), 0: ("Strong Sell", "down")}
@@ -211,6 +215,11 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
 
     rsi = rsi14(close)
 
+    # 이동평균선 위/아래. 5·20·60·120일선 각각에 대해 현재 종가가 위면 True.
+    # 상장한 지 얼마 안 돼 데이터가 모자라는 선은 None으로 두고 화면에 "–"로 표시한다.
+    mas = [(n, (last > float(close.tail(n).mean())) if len(close) >= n else None)
+           for n in (5, 20, 60, 120)]
+
     rating = None
     if rate and len(close) >= 200:
         ma20 = float(close.tail(20).mean())
@@ -218,7 +227,7 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
         ma200 = float(close.tail(200).mean())
         score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
         rating = RATING_LABEL[score]
-    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi
+    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas
 
 
 def pct_cell(v):
@@ -237,27 +246,88 @@ def streak_cell(sd):
     return f'<td class="down">{streak}일 하락</td>'
 
 
-def make_row(name, label, logo, sym, rate, closes, aths=None):
+# ETF 제목행에 붙는 한눈 라벨 — "기술주·전력주"처럼 짧은 우리말 분류(2026-08-09 요청).
+# 정확한 지수 이름은 카드 아래 상세 설명(ETF_DESC)에 그대로 남아 있다.
+ETF_TAG = {
+    "VOO": "미국 대형주", "VTI": "미국 전체주", "QQQ": "나스닥 기술주",
+    "VEA": "해외 선진국주", "IEFA": "해외 선진국주", "VTV": "가치주",
+    "BND": "채권", "XLK": "기술주", "XLF": "금융주", "XLV": "제약·바이오주",
+    "XLY": "경기소비주", "XLP": "필수소비주", "XLE": "에너지주", "XLI": "산업주",
+    "XLB": "소재주", "XLU": "전력주", "MAGS": "빅테크주", "SOXX": "반도체주",
+}
+
+# ETF 카드 안에 넣는 한 줄 설명. 원래 ETF 탭 하단의 별도 설명 카드에 있던 내용을
+# 각 카드 안으로 옮겼다(2026-08-08 영재님 요청). 섹터 9종의 문구는 그 카드에서
+# 그대로 가져왔고, 나머지는 어느 지수를 따라가는지만 사실대로 적었다.
+ETF_DESC = {
+    "VOO": "<b>S&amp;P500</b> — 미국 대형주 500곳을 시가총액대로 담는 대표 지수 ETF. IVV·SPY와 같은 지수.",
+    "VTI": "<b>미국 전체</b> — 대형주부터 소형주까지 미국 상장주 전체를 담는다.",
+    "QQQ": "<b>나스닥100</b> — 나스닥 대형 기술주 중심. 성장주 장세에 강세 · 금리 급등엔 약세.",
+    "VEA": "<b>선진국(미국 제외)</b> — 유럽·일본 등 선진국 주식. 달러 약세엔 상대적 강세.",
+    "IEFA": "<b>선진국(북미 제외)</b> — 유럽·일본·호주 등. VEA와 담는 종목이 많이 겹친다.",
+    "VTV": "<b>대형 가치주</b> — 배당·금융·헬스케어 비중이 큰 가치주 모음. 하락장에서 상대적으로 방어적.",
+    "BND": "<b>미국 채권 전체</b> — 국채·회사채를 두루 담는 채권 ETF. 금리 하락엔 강세 · 금리 상승엔 약세.",
+    "XLK": "<b>기술</b> — 애플·MSFT·엔비디아 등 대형 IT·반도체. 금리 하락, AI/실적 기대감엔 강세 · 금리 급등, 성장주 조정엔 약세.",
+    "XLF": "<b>금융</b> — 은행·보험·자산운용. 금리 상승, 경기 호조엔 강세 · 경기침체 우려, 신용부실 리스크엔 약세.",
+    "XLV": "<b>헬스케어</b> — 제약·바이오·의료기기. 경기와 무관하게 방어적 · 약가 규제, 정책 리스크엔 약세.",
+    "XLY": "<b>임의소비재</b> — 아마존·테슬라 등 경기소비재. 소비심리·고용 호조엔 강세 · 금리 인상, 소비 위축엔 약세.",
+    "XLP": "<b>필수소비재</b> — 생필품·유통. 증시 조정기엔 상대적 강세(방어주) · 강세장에서는 소외.",
+    "XLE": "<b>에너지</b> — 정유·가스. 유가 상승, 지정학 리스크엔 강세 · 유가 하락, 수요 둔화엔 약세.",
+    "XLI": "<b>산업재</b> — 제조·항공·건설장비. 경기 확장, 인프라 투자엔 강세 · 경기 둔화엔 약세.",
+    "XLB": "<b>소재</b> — 화학·철강·광산. 원자재 가격 상승, 달러 약세엔 강세 · 경기 둔화, 달러 강세엔 약세.",
+    "XLU": "<b>유틸리티</b> — 전력·가스·수도. 금리 하락기, 안전자산 선호엔 강세 · 금리 상승기엔 약세.",
+    "MAGS": "<b>매그니피센트7</b> — 애플·MSFT·엔비디아 등 빅테크 7종목만 담는 테마 ETF.",
+    "SOXX": "<b>반도체</b> — 필라델피아 반도체 지수 추종. AI·반도체 사이클에 민감.",
+}
+
+
+def ma_cell(mas):
+    """이동평균선 칸. 5▲는 5일선 위, 60▼는 60일선 아래, 120–는 데이터 부족."""
+    chips = []
+    for n, above in mas:
+        if above is None:
+            chips.append(f'<span class="ma na" title="{n}일선: 데이터 부족">{n}–</span>')
+        elif above:
+            chips.append(f'<span class="ma up" title="{n}일 이동평균선 위">{n}▲</span>')
+        else:
+            chips.append(f'<span class="ma down" title="{n}일 이동평균선 아래">{n}▼</span>')
+    return f'<td class="ma-td">{"".join(chips)}</td>'
+
+
+def price_str(sym, v):
+    """카드 제목 띠에 붙는 종가. 한국 종목은 원, 나머지는 달러로 적는다."""
+    if sym.endswith((".KS", ".KQ")):
+        return f"{v:,.0f}원"
+    return f"${v:,.2f}"
+
+
+def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None):
+    # 열 순서는 "기간이 이어지게" 놓는다: 일간→주간→YTD(연간)를 붙이고,
+    # 그 다음 고점대비 두 개, 마지막에 연속·RSI·이평선. (2026-08-08 영재님 요청)
+    # desc가 있으면(ETF) 카드 맨 아래에 설명 한 줄이 붙는다.
+    # 제목 띠 오른쪽에는 기준일 종가를 그대로 적는다(2026-08-09 영재님 요청).
     aths = aths or {}
     logo_html = (f'<img class="supp-logo" src="https://logo.clearbit.com/{logo}" '
                  f"onerror=\"this.style.display='none'\">") if logo else ""
-    name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span></td>'
+    desc_td = f'<td class="supp-desc">{desc}</td>' if desc else ""
+    tag_html = f'<span class="supp-tag">{tag}</span>' if tag else ""
     try:
         close = closes[sym]
-        day, dd52, ddath, week, ytd, sd, rsi = compute(close, rate, aths.get(sym))
-        day_cell = pct_cell(day)
-        dd_cell = pct_cell(dd52)
-        ath_cell = pct_cell(ddath)
-        wk_cell = pct_cell(week)
-        ytd_cell = pct_cell(ytd)
-        st_cell = streak_cell(sd)
-        rsi_cell = f"<td>{rsi:.1f}</td>"
-        return (f"          <tr>{name_td}{day_cell}{dd_cell}{ath_cell}{wk_cell}"
-                f"{ytd_cell}{st_cell}{rsi_cell}</tr>")
+        px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
+        name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span>{tag_html}{px}</td>'
+        day, dd52, ddath, week, ytd, sd, rsi, mas = compute(close, rate, aths.get(sym))
+        # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
+        sign = ("d-up" if day and day > 0 else
+                "d-down" if day and day < 0 else "d-flat")
+        return (f'          <tr class="{sign}">' + name_td + pct_cell(day) + pct_cell(week)
+                + pct_cell(ytd) + pct_cell(dd52) + pct_cell(ddath)
+                + streak_cell(sd) + f"<td>{rsi:.1f}</td>" + ma_cell(mas)
+                + desc_td + "</tr>")
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
-        return f"          <tr>{name_td}{nc * 7}</tr>"
+        name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span></td>'
+        return f"          <tr>{name_td}{nc * 8}{desc_td}</tr>"
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
@@ -1005,11 +1075,14 @@ INDEXES = [
     ("VIX 공포지수", "VIX", "^VIX", "TVC:VIX", 2),
     ("코스피", "KOSPI", "^KS11", "KRX:KOSPI", 2),
     ("코스닥", "KOSDAQ", "^KQ11", "KRX:KOSDAQ", 2),
-    ("원달러 환율", "USDKRW", "KRW=X", "FX_IDC:USDKRW", 2),
-    ("미 10년물 금리", "US10Y", "^TNX", "TVC:US10Y", 3),
-    # "매크로·심리" 탭에서 이미 쓰고 있는 것과 같은 심볼(2년물 국채 수익률 선물)로 맞춘다.
-    ("미 2년물 금리", "US02Y", "2YY=F", "TVC:US02Y", 3),
+    # 아래 6개는 없어진 매크로·심리 탭에서 넘어온 것들. 카드를 펼치면 보조지표가 나온다.
     ("달러 인덱스", "DXY", "DX-Y.NYB", "TVC:DXY", 2),
+    ("원달러 환율", "USDKRW", "KRW=X", "FX_IDC:USDKRW", 2),
+    ("WTI 원유", "USOIL", "CL=F", "TVC:USOIL", 2),
+    ("브렌트유", "UKOIL", "BZ=F", "TVC:UKOIL", 2),
+    ("금", "GOLD", "GC=F", "TVC:GOLD", 2),
+    ("은", "SILVER", "SI=F", "TVC:SILVER", 2),
+    ("비트코인", "BTC", "BTC-USD", "COINBASE:BTCUSD", 0),
     ("하이일드 스프레드", "HY OAS", "FRED:BAMLH0A0HYM2", "FRED:BAMLH0A0HYM2", 2),
 ]
 
@@ -1139,8 +1212,57 @@ def num(v, digits):
     return f"{v:,.{digits}f}"
 
 
-def idx_card(name, label, tvsym, last, prev, digits):
-    """지수 카드 하나. 클릭하면 차트가 펼쳐지도록 <details>로 감싼다."""
+def im_row(k, v_html):
+    return f'<div class="im"><span class="im-k">{k}</span>{v_html}</div>'
+
+
+def im_pct(v):
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return '<span class="im-v needchk">확인 필요</span>'
+    cls = "up" if v > 0 else ("down" if v < 0 else "needchk")
+    return f'<span class="im-v {cls}">{v:+.2f}%</span>'
+
+
+def im_pp(v):
+    """FRED 스프레드용 — %가 아니라 %p 차이로 적는다."""
+    if v is None:
+        return '<span class="im-v needchk">확인 필요</span>'
+    cls = "up" if v > 0 else ("down" if v < 0 else "needchk")
+    return f'<span class="im-v {cls}">{v:+.2f}%p</span>'
+
+
+def idx_metrics(s, sym, ath):
+    """카드를 펼쳤을 때 보여줄 보조지표 블록.
+
+    없어진 매크로·심리 탭의 표가 하던 역할이 여기로 왔다. 하이일드 스프레드(FRED)는
+    값 자체가 %p라서 등락을 %로 적으면 헷갈리므로 %p 차이로 따로 계산한다.
+    """
+    if sym.startswith("FRED:"):
+        last = float(s.iloc[-1])
+        rows = [im_row(k, im_pp(None if a is None else last - a))
+                for k, a in [("전일 대비", ago(s, 1)), ("1주 대비", ago(s, 5)),
+                             ("1개월 대비", ago(s, 21)), ("1년 대비", ago(s, 252))]]
+        rows.append(im_row("52주 범위",
+                           f'<span class="im-v">{float(s.tail(252).min()):.2f}~'
+                           f'{float(s.tail(252).max()):.2f}%p</span>'))
+        return '<div class="idx-metrics">' + "".join(rows) + "</div>"
+    day, dd52, ddath, week, ytd, sd, rsi, mas = compute(s, False, ath)
+    streak, direction = sd
+    st = ('<span class="im-v needchk">보합</span>' if streak == 0 else
+          f'<span class="im-v up">{streak}일 상승</span>' if direction > 0 else
+          f'<span class="im-v down">{streak}일 하락</span>')
+    ma_html = ma_cell(mas).replace('<td class="ma-td">', '<span class="im-v">') \
+                          .replace("</td>", "</span>")
+    rows = [im_row("일간", im_pct(day)), im_row("주간", im_pct(week)),
+            im_row("26년 YTD", im_pct(ytd)), im_row("52주 고점대비", im_pct(dd52)),
+            im_row("사상최고 대비", im_pct(ddath)), im_row("연속", st),
+            im_row("RSI", f'<span class="im-v">{rsi:.1f}</span>'),
+            im_row("이평선", ma_html)]
+    return '<div class="idx-metrics">' + "".join(rows) + "</div>"
+
+
+def idx_card(name, label, tvsym, last, prev, digits, metrics=""):
+    """지수 카드 하나. 클릭하면 보조지표와 차트가 펼쳐지도록 <details>로 감싼다."""
     chg = last - prev
     pct = (last / prev - 1) * 100 if prev else 0.0
     cls = "up" if chg > 0 else ("down" if chg < 0 else "flat")
@@ -1152,8 +1274,9 @@ def idx_card(name, label, tvsym, last, prev, digits):
         f'              <div class="idx-val">{num(last, digits)}</div>\n'
         f'              <div class="idx-chg {cls}">{sign}{pct:.2f}%'
         f'<span class="idx-abs">{sign}{num(chg, digits)}</span></div>\n'
-        '              <span class="idx-more">차트 보기</span>\n'
+        '              <span class="idx-more">지표·차트</span>\n'
         '            </summary>\n'
+        f'            {metrics}\n'
         f'            <div class="idx-chart" data-tvsym="{tvsym}"></div>\n'
         '          </details>'
     )
@@ -1166,22 +1289,29 @@ def idx_card_fail(name, label, tvsym):
         f'              <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
         '              <div class="idx-val needchk">확인 필요</div>\n'
         '              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>\n'
-        '              <span class="idx-more">차트 보기</span>\n'
+        '              <span class="idx-more">지표·차트</span>\n'
         '            </summary>\n'
         f'            <div class="idx-chart" data-tvsym="{tvsym}"></div>\n'
         '          </details>'
     )
 
 
-def build_idx(closes):
+def build_idx(closes, aths=None):
+    aths = aths or {}
     cards, ok = [], 0
     for name, label, sym, tvsym, digits in INDEXES:
         try:
             s = closes[sym].dropna()
             if len(s) < 2:
                 raise ValueError("데이터 부족")
+            try:
+                metrics = idx_metrics(s, sym, aths.get(sym))
+            except Exception as me:
+                # 지표 계산이 안 돼도 카드 자체(현재값·등락)는 살린다
+                print(f"  [warn] 지수 지표 {sym}: {me}", file=sys.stderr)
+                metrics = ""
             cards.append(idx_card(name, label, tvsym,
-                                  float(s.iloc[-1]), float(s.iloc[-2]), digits))
+                                  float(s.iloc[-1]), float(s.iloc[-2]), digits, metrics))
             ok += 1
         except Exception as e:
             print(f"  [warn] 지수 {sym}: {e}", file=sys.stderr)
@@ -1261,6 +1391,340 @@ def build_fng_kr(closes):
         print(f"  [warn] 한국 심리지수: {e}", file=sys.stderr)
         return fng_item_fail("한국 주식 (자체 산출)", "계산에 필요한 데이터를 못 받아왔습니다")
 
+
+
+
+# ------------------------------------------------------------- 오늘의 신호
+#
+# 표 103종목을 매번 훑지 않아도 되게, 기계적 조건에 걸린 종목만 개요 탭에 모은다.
+# 전부 이미 받아온 종가에서 계산하는 값이라 새 데이터 소스는 없다. 조건:
+#   52주 신고가  : 오늘 종가가 최근 252거래일 최고가 (1년치 데이터가 있을 때만)
+#   골든/데드크로스: 5일 이동평균이 20일 이동평균을 오늘 상향/하향 돌파
+#   RSI 과매도/과열: 14일 RSI 30 이하 / 70 이상
+#   급등/급락    : 하루 ±5% 이상
+# 계산 조건일 뿐 매수·매도 추천이 아니라는 문구를 화면에 같이 적는다.
+
+def build_signals(closes):
+    stocks, seen = [], set()
+    for sec in ("us30", "kr10", "etf"):
+        for name, label, _, sym, _ in SECTIONS[sec]:
+            if sym not in seen:
+                seen.add(sym)
+                stocks.append((name, sym))
+
+    hi52, golden, dead, oversold, overheat, spike = [], [], [], [], [], []
+    for name, sym in stocks:
+        s = closes.get(sym)
+        if s is None:
+            continue
+        s = s.dropna()
+        if len(s) < 60:
+            continue
+        last, prev = float(s.iloc[-1]), float(s.iloc[-2])
+        day = (last / prev - 1) * 100
+        try:
+            r = rsi14(s)
+        except Exception:
+            r = None
+
+        if len(s) >= 252 and last >= float(s.tail(252).max()):
+            hi52.append((name, sym, price_str(sym, last), -last))
+        if len(s) >= 21:
+            ma5, ma20 = float(s.tail(5).mean()), float(s.tail(20).mean())
+            y = s.iloc[:-1]
+            ma5y, ma20y = float(y.tail(5).mean()), float(y.tail(20).mean())
+            if ma5 > ma20 and ma5y <= ma20y:
+                golden.append((name, sym, f"{day:+.1f}%", 0))
+            elif ma5 < ma20 and ma5y >= ma20y:
+                dead.append((name, sym, f"{day:+.1f}%", 0))
+        if r is not None and r <= 30:
+            oversold.append((name, sym, f"RSI {r:.1f}", r))
+        elif r is not None and r >= 70:
+            overheat.append((name, sym, f"RSI {r:.1f}", -r))
+        if abs(day) >= 5:
+            spike.append((name, sym, f"{day:+.1f}%", -abs(day)))
+
+    def chips(items, vcls):
+        if not items:
+            return '<span class="sig-none">오늘은 없음</span>'
+        items = sorted(items, key=lambda t: t[3])
+        out = [f'<span class="sig-chip">{n}<b class="{vcls}">{v}</b></span>'
+               for n, _, v, _ in items[:14]]
+        if len(items) > 14:
+            out.append(f'<span class="sig-none">외 {len(items) - 14}종목</span>')
+        return "".join(out)
+
+    rows = [
+        ("52주 신고가", chips(hi52, "sig-acc")),
+        ("골든크로스 <i>5일선이 20일선 상향 돌파</i>", chips(golden, "up")),
+        ("데드크로스 <i>5일선이 20일선 하향 돌파</i>", chips(dead, "down")),
+        ("RSI 과매도 <i>30 이하</i>", chips(oversold, "down")),
+        ("RSI 과열 <i>70 이상</i>", chips(overheat, "up")),
+        ("하루 ±5% 이상", chips(spike, "sig-acc")),
+    ]
+    n_all = sum(len(x) for x in (hi52, golden, dead, oversold, overheat, spike))
+    print(f"  신호 {n_all}건 (신고가 {len(hi52)} · 골든 {len(golden)} · 데드 {len(dead)} · "
+          f"과매도 {len(oversold)} · 과열 {len(overheat)} · 급등락 {len(spike)})")
+    body = "".join(f'<div class="sig-row"><span class="sig-k">{k}</span>'
+                   f'<span class="sig-v">{v}</span></div>' for k, v in rows)
+    return f'\n        <div class="sig-grid">{body}</div>\n      '
+
+
+# ------------------------------------------------------------- 시총순위 차트
+#
+# 개요: 반기별 순위는 손으로 검증해 넣은 값(MCAP_HIST)이고, 마지막 "현재" 열만
+# 매 실행 때 야후 파이낸스 시가총액으로 다시 계산한다. 시가총액을 충분히 못
+# 받아오면(30개 미만) 지어내지 않고 MCAP_HIST에 저장된 마지막 수기 스냅샷을
+# 그대로 쓴다 — 그 경우 화면에는 수기 기준일이 그대로 남는다.
+# 과거 값의 출처는 index.html의 접힌 표(반기별 표)에 링크로 남아 있다.
+
+MCAP_KO = {
+    "Apple": "애플", "Microsoft": "마이크로소프트", "Alphabet": "알파벳",
+    "Amazon": "아마존", "Berkshire Hathaway": "버크셔해서웨이", "Tesla": "테슬라",
+    "Meta Platforms": "메타", "Johnson & Johnson": "존슨앤드존슨",
+    "UnitedHealth": "유나이티드헬스", "Visa": "비자", "ExxonMobil": "엑슨모빌",
+    "JPMorgan Chase": "JP모건", "Nvidia": "엔비디아", "Eli Lilly": "일라이릴리",
+    "Broadcom": "브로드컴", "Walmart": "월마트", "Micron Technology": "마이크론",
+}
+MCAP_LOGO = {
+    "NVDA": "nvidia.com", "GOOGL": "abc.xyz", "AAPL": "apple.com",
+    "MSFT": "microsoft.com", "AMZN": "amazon.com", "AVGO": "broadcom.com",
+    "META": "meta.com", "TSLA": "tesla.com", "BRK.B": "berkshirehathaway.com",
+    "MU": "micron.com",
+}
+# 기업 고유색은 index.html의 CSS 변수(--mcc-티커)로 정의돼 있다. 거기 없는
+# 기업이 새로 TOP10에 들어오면 아래 예비색을 순서대로 준다(밝음/어둠 겸용 중간톤).
+MCAP_EXTRA_COLORS = ["#0e7c9e", "#b8005c", "#5a6b00", "#7a4fd1"]
+# 미국 기업 순위이므로 외국 기업 ADR은 뺀다 (수기 표의 출처 companiesmarketcap
+# USA 목록과 기준을 맞추기 위함)
+MCAP_FOREIGN = {"TSM", "ASML", "ARM", "HSBC", "NVS", "RY", "SAP", "BABA", "TM",
+                "SHEL", "AZN", "SNY", "UL", "NVO"}
+
+# (열 이름, 그 열의 기준일, 추정 여부, [(영문명, 티커, 표시금액)])
+# 마지막 항목이 "현재"의 수기 예비값 — 자동 계산이 실패했을 때만 쓰인다.
+MCAP_HIST = [
+    ("'22상", "2022-06-30", True, [
+        ("Apple", "AAPL", "$2.27조"), ("Microsoft", "MSFT", "$1.94조"),
+        ("Alphabet", "GOOGL", "$1.39조"), ("Amazon", "AMZN", "$1.06조"),
+        ("Berkshire Hathaway", "BRK.B", "$682.6B"), ("Tesla", "TSLA", "$650.8B"),
+        ("Meta Platforms", "META", "$490.6B"), ("Johnson & Johnson", "JNJ", "$477.3B"),
+        ("UnitedHealth", "UNH", "$466.9B"), ("Visa", "V", "$428.8B")]),
+    ("'22하", "2022-12-30", False, [
+        ("Apple", "AAPL", "$2.067조"), ("Microsoft", "MSFT", "$1.788조"),
+        ("Alphabet", "GOOGL", "$1.148조"), ("Amazon", "AMZN", "$856.8B"),
+        ("Berkshire Hathaway", "BRK.B", "$678.7B"), ("UnitedHealth", "UNH", "$495.4B"),
+        ("Johnson & Johnson", "JNJ", "$461.8B"), ("ExxonMobil", "XOM", "$454.2B"),
+        ("Visa", "V", "$432.4B"), ("JPMorgan Chase", "JPM", "$393.3B")]),
+    ("'23상", "2023-06-30", True, [
+        ("Apple", "AAPL", "$3.0조 안팎"), ("Microsoft", "MSFT", "약 $2.3~2.4조"),
+        ("Alphabet", "GOOGL", "약 $1.5~1.6조"), ("Amazon", "AMZN", "약 $1.2~1.4조"),
+        ("Nvidia", "NVDA", "약 $1.0~1.05조"), ("Berkshire Hathaway", "BRK.B", "약 $750~780B"),
+        ("Meta Platforms", "META", "약 $700~750B"), ("Tesla", "TSLA", "약 $700~800B"),
+        ("Eli Lilly", "LLY", "약 $470~520B"), ("Visa", "V", "약 $470~500B")]),
+    ("'23하", "2023-12-29", False, [
+        ("Apple", "AAPL", "$2.994조"), ("Microsoft", "MSFT", "$2.795조"),
+        ("Alphabet", "GOOGL", "$1.764조"), ("Amazon", "AMZN", "$1.570조"),
+        ("Nvidia", "NVDA", "$1.223조"), ("Meta Platforms", "META", "$909.7B"),
+        ("Tesla", "TSLA", "$789.9B"), ("Berkshire Hathaway", "BRK.B", "$772.5B"),
+        ("Eli Lilly", "LLY", "$553.4B"), ("Visa", "V", "$525.7B")]),
+    ("'24상", "2024-06-28", True, [
+        ("Nvidia", "NVDA", "약 $3.3조"), ("Microsoft", "MSFT", "약 $3.3조"),
+        ("Apple", "AAPL", "약 $3.0~3.3조"), ("Alphabet", "GOOGL", "약 $2.1~2.2조"),
+        ("Amazon", "AMZN", "약 $1.9조"), ("Meta Platforms", "META", "약 $1.3조"),
+        ("Berkshire Hathaway", "BRK.B", "약 $900~950B"), ("Eli Lilly", "LLY", "약 $800~850B"),
+        ("Broadcom", "AVGO", "약 $700B"), ("Tesla", "TSLA", "약 $600~650B")]),
+    ("'24하", "2024-12-31", False, [
+        ("Apple", "AAPL", "$3.766조"), ("Nvidia", "NVDA", "$3.289조"),
+        ("Microsoft", "MSFT", "$3.134조"), ("Alphabet", "GOOGL", "$2.325조"),
+        ("Amazon", "AMZN", "$2.323조"), ("Meta Platforms", "META", "$1.484조"),
+        ("Tesla", "TSLA", "$1.299조"), ("Broadcom", "AVGO", "$1.087조"),
+        ("Berkshire Hathaway", "BRK.B", "$977.7B"), ("Walmart", "WMT", "$725.8B")]),
+    ("'25상", "2025-07-02", False, [
+        ("Nvidia", "NVDA", "$4.2조"), ("Microsoft", "MSFT", "$3.8조"),
+        ("Apple", "AAPL", "약 $3.1~3.2조"), ("Amazon", "AMZN", "$2.4조"),
+        ("Alphabet", "GOOGL", "약 $2.2~2.3조"), ("Meta Platforms", "META", "$1.8조"),
+        ("Broadcom", "AVGO", "$1.3조"), ("Tesla", "TSLA", "$1.1조"),
+        ("Berkshire Hathaway", "BRK.B", "$1.0조"), ("Eli Lilly", "LLY", "약 $694~731B")]),
+    ("'25하", "2025-12-31", False, [
+        ("Nvidia", "NVDA", "$4.533조"), ("Apple", "AAPL", "$4.017조"),
+        ("Alphabet", "GOOGL", "$3.777조"), ("Microsoft", "MSFT", "$3.594조"),
+        ("Amazon", "AMZN", "$2.468조"), ("Meta Platforms", "META", "$1.664조"),
+        ("Broadcom", "AVGO", "$1.641조"), ("Tesla", "TSLA", "$1.496조"),
+        ("Berkshire Hathaway", "BRK.B", "$1.084조"), ("Eli Lilly", "LLY", "$961.9B")]),
+    ("'26상", "2026-06-30", True, [
+        ("Nvidia", "NVDA", "약 $5.0~5.2조"), ("Alphabet", "GOOGL", "약 $4.2~4.5조"),
+        ("Apple", "AAPL", "약 $3.9~4.4조"), ("Microsoft", "MSFT", "약 $2.9~3.2조"),
+        ("Amazon", "AMZN", "약 $2.6~2.8조"), ("Broadcom", "AVGO", "약 $1.8~1.9조"),
+        ("Meta Platforms", "META", "약 $1.5~1.7조"), ("Tesla", "TSLA", "약 $1.4~1.5조"),
+        ("Berkshire Hathaway", "BRK.B", "약 $1.0~1.1조"), ("Eli Lilly", "LLY", "약 $1.0조")]),
+    ("현재", "2026-08-04", False, [
+        ("Nvidia", "NVDA", "$5.133조"), ("Alphabet", "GOOGL", "$4.590조"),
+        ("Apple", "AAPL", "$4.515조"), ("Microsoft", "MSFT", "$3.659조"),
+        ("Amazon", "AMZN", "$2.992조"), ("Broadcom", "AVGO", "$1.989조"),
+        ("Meta Platforms", "META", "$1.497조"), ("Tesla", "TSLA", "$1.292조"),
+        ("Berkshire Hathaway", "BRK.B", "$1.115조"), ("Micron Technology", "MU", "$1.008조")]),
+]
+
+# 차트 위에 표시할 사건들. 날짜가 확실한 것만 넣는다(월 단위 표기).
+# ChatGPT 출시일과 애플 $3조 첫 마감(2023-06-30), 엔비디아의 MSFT 추월(2024-06-18,
+# CNBC)은 수기 표의 출처에서 이미 검증된 날짜다. 엔비디아 $1조는 2023년 5월 말
+# 장중 첫 돌파라 월 단위로만 적는다.
+MCAP_EVENTS = [
+    ("2022-11-30", "ChatGPT 출시", "AI 랠리의 출발점이 된 날"),
+    ("2023-05-30", "엔비디아 $1조", "2023년 5월 말 시총 $1조 첫 돌파(장중)"),
+    ("2023-06-30", "애플 $3조", "시총 $3조에 처음으로 마감"),
+    ("2024-06-18", "엔비디아 1위", "마이크로소프트를 제치고 시총 1위(CNBC)"),
+]
+
+
+def mcap_fmt(cap):
+    return f"${cap / 1e12:.3f}조" if cap >= 1e12 else f"${cap / 1e9:.1f}B"
+
+
+def mcap_live_rows(mcaps):
+    """야후 시가총액으로 현재 TOP10을 만든다. 못 미더우면 None."""
+    if not mcaps or len(mcaps) < 30:
+        return None
+    us30 = {sym: (name, label) for name, label, _, sym, _ in SECTIONS["us30"]}
+    ranked = []
+    for sym, cap in sorted(mcaps.items(), key=lambda kv: -kv[1]):
+        name, label = us30[sym]
+        if label in MCAP_FOREIGN or label == "SPCX":
+            continue
+        ranked.append((name, label, mcap_fmt(cap)))
+        if len(ranked) == 10:
+            break
+    # 1위가 $1조도 안 되면 시가총액을 잘못 받은 것이다
+    if len(ranked) < 10 or max(mcaps.values()) < 1e12:
+        return None
+    return ranked
+
+
+def mcap_parse(s):
+    """표시 문자열("$5.133조", "약 $700~750B")에서 막대 길이용 숫자를 뽑는다.
+    범위는 중간값. 못 읽으면 None → 막대 없이 글자만 나온다."""
+    nums = re.findall(r"[\d.]+", s)
+    if not nums:
+        return None
+    v = (float(nums[0]) + float(nums[1])) / 2 if ("~" in s and len(nums) >= 2) else float(nums[0])
+    return v * (1e9 if "B" in s else 1e12)
+
+
+def build_mcap(mcaps=None):
+    """시총순위 <!--MCAP--> 구간 — 순위 히트맵 그리드.
+
+    행이 기업, 열이 반기. 칸의 숫자가 그 시점 순위이고 상위권일수록 진한 보라색이다
+    (색 단계는 index.html의 .mg-c.r1~r10 클래스에 정의). 밀려난 기업은 회색 계열.
+    선을 다 걷어낸 이유: 열일곱 개의 선이 교차하는 그림보다, 숫자가 박힌 바둑판이
+    "누가 언제 몇 위였나"를 훨씬 빨리 읽게 해준다(2026-08-09 영재님 선택).
+    """
+    periods = [(t, d, a, [(MCAP_KO.get(n, n), tk, cap) for n, tk, cap in rows])
+               for t, d, a, rows in MCAP_HIST]
+    live = mcap_live_rows(mcaps)
+    if live:
+        asof = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
+        periods[-1] = ("현재", datetime.datetime.now(KST).date().isoformat(), False, live)
+        cur_note = (f'"현재" 열은 야후 파이낸스 시가총액으로 자동 계산({asof} KST 갱신)'
+                    "이라, 출처가 다른 과거 열과 집계 기준이 조금 다를 수 있습니다.")
+    else:
+        cur_note = f'"현재" 열은 {MCAP_HIST[-1][1]} 기준 수기값입니다(자동 계산 실패 시 예비값).'
+        if mcaps is not None:
+            print(f"  [warn] 시총순위: 시가총액 {len(mcaps)}개뿐이라 수기 예비값 사용", file=sys.stderr)
+
+    n = len(periods)
+    last = n - 1
+    esc = lambda s: re.sub(r"&(?!amp;|lt;|gt;|#)", "&amp;", s).replace("<", "&lt;")
+
+    comp, ko_by_tk = {}, {}
+    for i, (_, _, _, rows) in enumerate(periods):
+        for r, (ko, tk, cap) in enumerate(rows, 1):
+            comp.setdefault(tk, {})[i] = (r, cap)
+            ko_by_tk[tk] = ko
+    approx = {i for i, (_, _, a, _) in enumerate(periods) if a}
+
+    cur = sorted((tk for tk in comp if last in comp[tk]), key=lambda tk: comp[tk][last][0])
+    out = sorted((tk for tk in comp if last not in comp[tk]),
+                 key=lambda tk: (-max(comp[tk]), min(r for r, _ in comp[tk].values())))
+
+    caps_now = {tk: mcap_parse(comp[tk][last][1]) for tk in cur}
+    max_cap = max((v for v in caps_now.values() if v), default=None)
+
+    # 사건 마커: 열(반기 말 날짜) 사이 위치를 비율로 계산해 열 영역 위에 얹는다
+    pdates = [datetime.date.fromisoformat(d) for _, d, _, _ in periods]
+    ev_html = []
+    for k, (dstr, short, detail) in enumerate(MCAP_EVENTS):
+        d = datetime.date.fromisoformat(dstr)
+        if d <= pdates[0] or d >= pdates[-1]:
+            continue
+        i = max(j for j in range(n - 1) if pdates[j] <= d)
+        frac = (d - pdates[i]).days / max(1, (pdates[i + 1] - pdates[i]).days)
+        left = (i + frac + 0.5) / n * 100
+        ev_html.append(f'<span class="mg-ev{" alt" if k % 2 else ""}" style="left:{left:.2f}%" '
+                       f'title="{dstr} — {esc(detail)}">{esc(short)}</span>')
+
+    head = ['<div class="mg-corner">기업</div>']
+    for i, (t, d, a, _) in enumerate(periods):
+        cls = "mg-h mg-hnow" if i == last else ("mg-h mg-hest" if a else "mg-h")
+        tip = f' title="{d} 기준{" · 추정" if a else ""}"'
+        head.append(f'<div class="{cls}"{tip}>{t}</div>')
+    head.append('<div class="mg-hbar">현재 시총</div>')
+
+    def row_html(tk, is_out):
+        ko, pts = ko_by_tk[tk], comp[tk]
+        cells = []
+        for i in range(n):
+            if i in pts:
+                r, cap = pts[i]
+                pre = "o" if is_out else "r"
+                est = " (추정)" if i in approx else ""
+                cells.append(f'<div class="mg-c {pre}{r}" title="{esc(ko)} · {periods[i][0]} · '
+                             f'{r}위 · {esc(cap)}{est}">{r}</div>')
+            else:
+                cells.append('<div class="mg-c mg-empty" title="10위 밖">·</div>')
+        logo = (f'<img class="supp-logo" src="https://logo.clearbit.com/{MCAP_LOGO[tk]}" '
+                'onerror="this.style.display=\'none\'">') if tk in MCAP_LOGO else ""
+        name = (f'<div class="mg-name{" out" if is_out else ""}">{logo}{esc(ko)}'
+                f'<span class="mg-tk">{esc(tk)}</span></div>')
+        if is_out:
+            seen = max(pts)
+            bar = f'<div class="mg-bar out">{periods[seen][0]}까지 <span class="mg-outtag">이탈</span></div>'
+        else:
+            r_now, cap = pts[last]
+            prev = pts.get(last - 2)
+            if prev is None:
+                delta = '<span class="mg-new">신규</span>'
+            elif prev[0] != r_now:
+                d = prev[0] - r_now
+                delta = (f'<span class="mg-up">▲{d}</span>' if d > 0 else
+                         f'<span class="mg-down">▼{-d}</span>')
+            else:
+                delta = '<span class="mg-flat">—</span>'
+            v = caps_now.get(tk)
+            w = f' style="width:{v / max_cap * 100:.1f}%"' if (v and max_cap) else ' style="width:0"'
+            bar = f'<div class="mg-bar"><i{w}></i><b>{esc(cap)}</b>{delta}</div>'
+        return name + "".join(cells) + bar
+
+    rows_html = "".join(row_html(tk, False) for tk in cur)
+    rows_out = "".join(row_html(tk, True) for tk in out)
+
+    grid = (f'<div class="mg" style="grid-template-columns: 175px repeat({n}, 1fr) 185px;">'
+            f'<div class="mg-events">{"".join(ev_html)}</div>'
+            + "".join(head) + rows_html
+            + '<div class="mg-divider">10위 밖으로 밀려난 기업 (회색 = 당시 순위)</div>'
+            + rows_out + "</div>")
+
+    return (
+        '\n      <div class="card-note">행이 기업, 열이 반기입니다. 칸의 숫자가 그 시점 순위이고 '
+        '<b>진한 보라색일수록 상위권</b>, 회색 행은 지금 10위 밖으로 밀려난 기업입니다. '
+        '·은 그 시점에 10위 밖이었다는 뜻이고, 빈 순위를 지어내 채우지 않았습니다. '
+        "<b class=\"mc-estword\">노란 열 제목</b>('22상·'23상·'24상·'26상)은 확정 자료가 없어 "
+        '가까운 날짜 값을 종합한 <b>추정</b>이라 순위는 대체로 맞지만 금액은 범위로 봐주세요. '
+        '위쪽 작은 글씨는 주요 사건(마우스를 올리면 설명), 칸에 마우스를 올리면 그 시점 '
+        '시가총액이 나옵니다. 오른쪽 막대는 현재 시가총액 크기이고 '
+        '<span class="mg-up">▲</span><span class="mg-down">▼</span>는 1년 전 대비 순위 변화입니다. '
+        f'{cur_note}</div>\n'
+        f'      <div class="mg-scroll">{grid}</div>\n      '
+    )
 
 # ------------------------------------------------------ 미 국채 금리 / 장단기차
 #
@@ -1522,6 +1986,74 @@ def build_earn_cal(rows):
     return "\n".join(months)
 
 
+def load_ath_cache():
+    """저장해 둔 사상최고 값을 읽는다. 없거나 깨져 있으면 빈 값으로 시작한다."""
+    try:
+        with open(ATH_CACHE, encoding="utf-8") as f:
+            d = json.load(f)
+        aths = {k: float(v) for k, v in d.get("aths", {}).items()
+                if isinstance(v, (int, float)) and math.isfinite(float(v)) and v > 0}
+        return aths, d.get("date", "")
+    except FileNotFoundError:
+        return {}, ""
+    except Exception as e:
+        print(f"  [warn] {ATH_CACHE} 읽기 실패, 새로 만듭니다: {e}", file=sys.stderr)
+        return {}, ""
+
+
+def save_ath_cache(aths, date_str):
+    """사상최고 값을 저장한다. 실패해도 대시보드 갱신은 계속 진행한다."""
+    try:
+        with open(ATH_CACHE, "w", encoding="utf-8") as f:
+            json.dump({"date": date_str, "aths": {k: round(v, 6) for k, v in sorted(aths.items())}},
+                      f, ensure_ascii=False, indent=0, sort_keys=True)
+    except Exception as e:
+        print(f"  [warn] {ATH_CACHE} 저장 실패: {e}", file=sys.stderr)
+
+
+def last_close_date(closes, syms):
+    """주어진 종목들이 실제로 담고 있는 마지막 거래일을 돌려준다.
+
+    화면에 "언제 돌렸는지"가 아니라 "언제 종가인지"를 적기 위한 값이다. 종목마다
+    상장폐지·거래정지로 며칠씩 뒤처진 게 섞일 수 있어서, 가장 최근 날짜를 쓴다.
+    하나도 못 구하면 None을 돌려주고, 호출부에서 "확인 필요"로 적는다.
+    """
+    best = None
+    for sym in syms:
+        s = closes.get(sym)
+        if s is None:
+            continue
+        try:
+            idx = s.dropna().index
+            if len(idx) == 0:
+                continue
+            d = idx[-1].date()
+        except Exception:
+            continue
+        if best is None or d > best:
+            best = d
+    return best
+
+
+def close_label(d, tzname, close_h, close_m):
+    """거래일을 화면 문구로 만든다.
+
+    2시간마다 돌기 때문에 미국장이 열려 있는 동안에도 실행된다. 그때 야후가 주는
+    당일 봉은 아직 확정된 종가가 아니라 진행 중인 값이다. 그걸 "종가"라고 적으면
+    거짓말이 되므로, 장이 안 끝났으면 "장중"이라고 적는다.
+    """
+    if d is None:
+        return "확인 필요"
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.datetime.now(ZoneInfo(tzname))
+        if d == now.date() and (now.hour, now.minute) < (close_h, close_m):
+            return f"{d.isoformat()} 장중"
+    except Exception:
+        pass   # 시간대 정보를 못 읽으면 조용히 "종가"로 둔다 — 갱신 자체를 막지는 않는다
+    return f"{d.isoformat()} 종가"
+
+
 def splice(html, marker, body):
     start, end = f"<!--{marker}:START-->", f"<!--{marker}:END-->"
     i, j = html.find(start), html.find(end)
@@ -1535,6 +2067,7 @@ def main(html_path):
     all_syms = sorted(
         ({sym for rows in SECTIONS.values() for _, _, _, sym, _ in rows}
          | {sym for _, _, sym, _, _ in INDEXES}      # 개요 탭 주요 지수 카드
+         | {Y10, Y02}                                # 국채금리 카드 (표에는 안 실리지만 받아야 한다)
          | {KR_BOND_ETF})                            # 한국 심리지수 계산용
         - set(FRED_SYMS)   # FRED 심볼은 야후가 아니라 fetch_fred()로 따로 받는다
     )
@@ -1557,23 +2090,60 @@ def main(html_path):
     # 사상 최고가(전체 기간 최고 종가)는 위의 15개월치로는 알 수 없어서 따로 받는다.
     # 여기서 실패해도 표 전체가 죽으면 안 되므로, 실패하면 aths를 비워 두고
     # "사상최고 대비" 칸만 확인 필요로 남긴다 — 값을 만들어 채우지 않는다.
-    print("downloading all-time history for 사상최고...")
-    aths = {}
-    try:
-        hist = yf.download(all_syms, period="max", interval="1d",
-                           auto_adjust=True, progress=False, group_by="ticker",
-                           threads=True)
-        for sym in all_syms:
-            try:
-                s = (hist[sym]["Close"] if isinstance(hist.columns, pd.MultiIndex)
-                     else hist["Close"]).dropna()
-                if not s.empty:
-                    aths[sym] = float(s.max())
-            except Exception:
-                pass
-        print(f"  사상최고 확보 {len(aths)}/{len(all_syms)}")
-    except Exception as e:
-        print(f"  [warn] 전체 기간 시세 실패: {e}", file=sys.stderr)
+    today_kst = datetime.datetime.now(KST).date().isoformat()
+    aths, cache_date = load_ath_cache()
+
+    # 하루 한 번은 전체 기간을 다시 받는다. 액면분할이 생기면 auto_adjust가 과거 주가를
+    # 소급해서 낮추기 때문에, 저장해 둔 값을 계속 쓰면 분할 전 고점이 그대로 남아
+    # "사상최고 대비"가 실제보다 나쁘게 나온다. 그래서 캐시를 믿되 매일 한 번 갈아엎는다.
+    missing = [s for s in all_syms if s not in aths]
+    need_full = (cache_date != today_kst) or bool(missing)
+    full_ok = False
+    if need_full:
+        why = "캐시 없음/날짜 지남" if cache_date != today_kst else f"신규 종목 {len(missing)}개"
+        print(f"downloading all-time history for 사상최고... ({why})")
+        try:
+            hist = yf.download(all_syms, period="max", interval="1d",
+                               auto_adjust=True, progress=False, group_by="ticker",
+                               threads=True)
+            got = 0
+            for sym in all_syms:
+                try:
+                    s = (hist[sym]["Close"] if isinstance(hist.columns, pd.MultiIndex)
+                         else hist["Close"]).dropna()
+                    if not s.empty:
+                        aths[sym] = float(s.max())
+                        got += 1
+                except Exception:
+                    pass
+            full_ok = got > 0
+            print(f"  사상최고 확보 {got}/{len(all_syms)} (전체 조회)")
+        except Exception as e:
+            # 전체 조회가 실패해도 저장해 둔 값이 있으면 그걸 계속 쓴다.
+            print(f"  [warn] 전체 기간 시세 실패: {e}", file=sys.stderr)
+    else:
+        print(f"  사상최고: 오늘 저장된 값 재사용 {len(aths)}/{len(all_syms)} (전체 조회 건너뜀)")
+
+    # 저장된 값이든 방금 받은 값이든, 최근 15개월치에서 더 높은 종가가 나왔으면 그걸로 올린다.
+    # 오늘 새 신고가를 찍은 종목이 캐시 재사용 실행에서 누락되지 않게 하는 부분.
+    bumped = 0
+    for sym, s in closes.items():
+        if sym.startswith("FRED:"):
+            continue
+        try:
+            hi = float(s.dropna().max())
+        except Exception:
+            continue
+        if not math.isfinite(hi):
+            continue
+        if sym not in aths or hi > aths[sym]:
+            if sym in aths:
+                bumped += 1
+            aths[sym] = hi
+    if bumped:
+        print(f"  사상최고 갱신 {bumped}종목 (최근 15개월 중 신고가)")
+    # 전체 조회가 실패했으면 날짜를 오늘로 찍지 않는다. 그래야 다음 실행에서 다시 시도한다.
+    save_ath_cache(aths, today_kst if full_ok else cache_date)
 
     print(f"downloading {len(FRED_SYMS)} FRED series...")
     for sym in FRED_SYMS:
@@ -1587,7 +2157,11 @@ def main(html_path):
 
     ok_count = 0
     for section, rows in SECTIONS.items():
-        body = "\n".join(make_row(*row, closes, aths) for row in rows)
+        body = "\n".join(
+            make_row(*row, closes, aths,
+                     ETF_DESC.get(row[0]) if section == "etf" else None,
+                     ETF_TAG.get(row[0]) if section == "etf" else None)
+            for row in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
         i, j = html.find(start), html.find(end)
@@ -1598,7 +2172,10 @@ def main(html_path):
         ok_count += 1
 
     print("building index cards...")
-    html, idx_ok = splice(html, "IDX", build_idx(closes))
+    html, idx_ok = splice(html, "IDX", build_idx(closes, aths))
+
+    print("building signals...")
+    html, sig_ok = splice(html, "SIG", build_signals(closes))
 
     print("fetching fear & greed...")
     html, fng_ok = splice(html, "FNG", build_fng(closes))
@@ -1619,13 +2196,38 @@ def main(html_path):
     print("fetching big-tech financials...")
     html, fin_ok = splice(html, "FIN", build_fin())
 
-    # 깃허브 서버는 UTC로 돌아가므로, 한국시간 기준 날짜로 찍는다.
-    # (UTC 21:37 실행 = 한국 다음날 06:37 → UTC 날짜를 쓰면 하루 밀려 보인다)
-    today = datetime.datetime.now(KST).date().isoformat()
+    # 시총순위 "현재" 열: 미국 종목의 시가총액을 받아 TOP10을 다시 계산한다.
+    # 실패해도 죽지 않는다 — build_mcap이 수기 예비값으로 대신 그린다.
+    print("fetching market caps for 시총순위...")
+    mcaps = {}
+    for _, label, _, sym, _ in SECTIONS["us30"]:
+        if label == "SPCX":
+            continue
+        try:
+            mc = yf.Ticker(sym).fast_info["market_cap"]
+            if mc and mc > 0:
+                mcaps[sym] = float(mc)
+        except Exception:
+            pass
+    print(f"  시가총액 확보 {len(mcaps)}/{len(SECTIONS['us30']) - 1}")
+    html, mcap_ok = splice(html, "MCAP", build_mcap(mcaps))
+
+    # 화면에는 "스크립트를 돌린 날"이 아니라 "숫자가 어느 거래일 종가인지"를 적는다.
+    # 예전에는 실행 날짜만 찍었는데, 한국 아침에 보면 미국 숫자는 아직 이틀 전 종가인데
+    # 화면에는 오늘 날짜가 적혀 있어서 사실과 다르게 읽혔다. 그래서 시장별로 나눠 적는다.
+    # 주식 표에 실린 종목만 본다. 비트코인·환율·원자재 선물은 24시간 돌아서 늘 오늘
+    # 날짜가 찍히는데, 그걸 섞으면 미국 주식이 아직 어제 종가인데도 오늘로 보이게 된다.
+    us_d = last_close_date(closes, [r[3] for r in SECTIONS.get("us30", [])])
+    kr_d = last_close_date(closes, [r[3] for r in SECTIONS.get("kr10", [])])
+    now_kst = datetime.datetime.now(KST)
+    today = now_kst.date().isoformat()
+    stamp = (f"미국 {close_label(us_d, 'America/New_York', 16, 0)} · "
+             f"한국 {close_label(kr_d, 'Asia/Seoul', 15, 30)} "
+             f"(자동 갱신 {now_kst.strftime('%m-%d %H:%M')})")
     ds, de = "<!--SUPPDATE-->", "<!--/SUPPDATE-->"
     i, j = html.find(ds), html.find(de)
     if i != -1 and j != -1:
-        html = html[: i + len(ds)] + f"{today} (자동)" + html[j:]
+        html = html[: i + len(ds)] + stamp + html[j:]
 
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -1635,7 +2237,10 @@ def main(html_path):
           f"earn={'ok' if ecal_ok and elist_ok else 'MARKER MISSING'}({len(earn_rows)}건), "
           f"fng={'ok' if fng_ok else 'MARKER MISSING'}, "
           f"yield={'ok' if yld_ok else 'MARKER MISSING'}, "
-          f"fin={'ok' if fin_ok else 'MARKER MISSING'}, date={today}")
+          f"fin={'ok' if fin_ok else 'MARKER MISSING'}, "
+          f"mcap={'ok' if mcap_ok else 'MARKER MISSING'}({len(mcaps)}종목), "
+          f"sig={'ok' if sig_ok else 'MARKER MISSING'}, "
+          f"run={today}, 미국종가={us_d or '확인 필요'}, 한국종가={kr_d or '확인 필요'}")
 
 
 if __name__ == "__main__":
