@@ -102,6 +102,18 @@ SECTIONS = {
         ("ARM", "ARM", "arm.com", "ARM", True),
         ("KLA", "KLAC", "kla.com", "KLAC", True),
         ("GE버노바", "GEV", "gevernova.com", "GEV", True),
+        # ── 2026-08-15 TOP60 확장: 샌디스크(당시 미국 49위, 약 $240B)까지 보이게
+        #    시총 45~60위 구간에서 빠져 있던 종목을 채웠다. 출처: companiesmarketcap.com
+        ("샌디스크", "SNDK", "sandisk.com", "SNDK", True),
+        ("웰스파고", "WFC", "wellsfargo.com", "WFC", True),
+        ("텍사스인스트루먼트", "TXN", "ti.com", "TXN", True),
+        ("아리스타네트웍스", "ANET", "arista.com", "ANET", True),
+        ("씨티그룹", "C", "citigroup.com", "C", True),
+        ("아메리칸익스프레스", "AXP", "americanexpress.com", "AXP", True),
+        ("암젠", "AMGN", "amgen.com", "AMGN", True),
+        ("크라우드스트라이크", "CRWD", "crowdstrike.com", "CRWD", True),
+        ("IBM", "IBM", "ibm.com", "IBM", True),
+        ("써모피셔", "TMO", "thermofisher.com", "TMO", True),
     ],
     "kr10": [
         ("삼성전자", "005930", "samsung.com", "005930.KS", True),
@@ -301,7 +313,38 @@ def price_str(sym, v):
     return f"${v:,.2f}"
 
 
-def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None):
+def tv_symbol(label, sym):
+    """카드를 펼쳤을 때 띄울 TradingView 심볼. 없으면 None(펼침 버튼도 안 만든다)."""
+    if sym.endswith(".KS"):
+        return "KRX:" + sym[:-3]
+    if sym.endswith(".KQ"):
+        return "KOSDAQ:" + sym[:-3]
+    if label == "SPCX":            # 스페이스X는 상장 종목이 아니라 차트가 없다
+        return None
+    return label
+
+
+def rank_sorted(section, rows, mcaps):
+    """(행, 순위) 목록을 돌려준다.
+
+    미국·한국 탭은 받아온 시가총액이 큰 순으로 다시 세워서 자리번호를 그대로
+    순위 뱃지로 쓴다 — 손으로 적어둔 목록 순서는 시간이 지나면 실제 순위와
+    어긋나기 때문이다. 시가총액을 절반도 못 받아오면 순위를 지어내지 않고
+    원래 목록 순서 그대로, 뱃지 없이 내보낸다.
+    """
+    if section not in ("us30", "kr10"):
+        return [(r, None) for r in rows]
+    have = [r for r in rows if r[3] in mcaps]
+    if len(have) < len(rows) * 0.5:
+        print(f"  [warn] {section}: 시가총액 {len(have)}/{len(rows)}개뿐이라 "
+              f"순위 뱃지를 붙이지 않습니다", file=sys.stderr)
+        return [(r, None) for r in rows]
+    have.sort(key=lambda r: -mcaps[r[3]])
+    missing = [r for r in rows if r[3] not in mcaps]   # 못 받은 종목은 뒤에, 뱃지 없이
+    return [(r, i) for i, r in enumerate(have, 1)] + [(r, None) for r in missing]
+
+
+def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None, rank=None):
     # 열 순서는 "기간이 이어지게" 놓는다: 일간→주간→YTD(연간)를 붙이고,
     # 그 다음 고점대비 두 개, 마지막에 연속·RSI·이평선. (2026-08-08 영재님 요청)
     # desc가 있으면(ETF) 카드 맨 아래에 설명 한 줄이 붙는다.
@@ -311,10 +354,16 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                  f"onerror=\"this.style.display='none'\">") if logo else ""
     desc_td = f'<td class="supp-desc">{desc}</td>' if desc else ""
     tag_html = f'<span class="supp-tag">{tag}</span>' if tag else ""
+    # 시총 순위 뱃지 — 목록 자체가 시총순이라 자리 번호가 곧 순위다(2026-08-15 요청)
+    rank_html = f'<span class="supp-rank">{rank}</span>' if rank else ""
+    # 카드를 눌러 펼치면 나오는 차트 칸. 처음엔 비어 있고 펼칠 때 위젯을 붙인다.
+    tv = tv_symbol(label, sym)
+    chart_td = (f'<td class="supp-chart" data-tvsym="{tv}"></td>' if tv else "")
     try:
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
-        name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span>{tag_html}{px}</td>'
+        name_td = (f'<td>{rank_html}{logo_html}{name}'
+                   f'<span class="supp-ticker">{label}</span>{tag_html}{px}</td>')
         day, dd52, ddath, week, ytd, sd, rsi, mas = compute(close, rate, aths.get(sym))
         # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
         sign = ("d-up" if day and day > 0 else
@@ -322,12 +371,13 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         return (f'          <tr class="{sign}">' + name_td + pct_cell(day) + pct_cell(week)
                 + pct_cell(ytd) + pct_cell(dd52) + pct_cell(ddath)
                 + streak_cell(sd) + f"<td>{rsi:.1f}</td>" + ma_cell(mas)
-                + desc_td + "</tr>")
+                + desc_td + chart_td + "</tr>")
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
-        name_td = f'<td>{logo_html}{name}<span class="supp-ticker">{label}</span></td>'
-        return f"          <tr>{name_td}{nc * 8}{desc_td}</tr>"
+        name_td = (f'<td>{rank_html}{logo_html}{name}'
+                   f'<span class="supp-ticker">{label}</span></td>')
+        return f"          <tr>{name_td}{nc * 8}{desc_td}{chart_td}</tr>"
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
@@ -1588,6 +1638,8 @@ def mcap_live_rows(mcaps):
     us30 = {sym: (name, label) for name, label, _, sym, _ in SECTIONS["us30"]}
     ranked = []
     for sym, cap in sorted(mcaps.items(), key=lambda kv: -kv[1]):
+        if sym not in us30:        # 한국 종목 시가총액도 같이 받아오므로 걸러낸다
+            continue
         name, label = us30[sym]
         if label in MCAP_FOREIGN or label == "SPCX":
             continue
@@ -1595,7 +1647,7 @@ def mcap_live_rows(mcaps):
         if len(ranked) == 10:
             break
     # 1위가 $1조도 안 되면 시가총액을 잘못 받은 것이다
-    if len(ranked) < 10 or max(mcaps.values()) < 1e12:
+    if len(ranked) < 10 or max(v for k, v in mcaps.items() if k in us30) < 1e12:
         return None
     return ranked
 
@@ -2155,13 +2207,32 @@ def main(html_path):
     with open(html_path, encoding="utf-8") as f:
         html = f.read()
 
+    # 시가총액: 카드의 순위 뱃지와 시총순위 탭에 함께 쓴다. 실패해도 죽지 않는다
+    # — 순위 뱃지는 안 붙고, 시총순위 탭은 수기 예비값으로 그려진다.
+    print("fetching market caps...")
+    mcaps = {}
+    for sec in ("us30", "kr10"):
+        for _, label, _, sym, _ in SECTIONS[sec]:
+            if label == "SPCX":          # 비상장이라 시가총액이 없다
+                continue
+            try:
+                mc = yf.Ticker(sym).fast_info["market_cap"]
+                if mc and mc > 0:
+                    mcaps[sym] = float(mc)
+            except Exception:
+                pass
+    print(f"  시가총액 확보 {len(mcaps)}/"
+          f"{len(SECTIONS['us30']) + len(SECTIONS['kr10']) - 1}")
+
     ok_count = 0
     for section, rows in SECTIONS.items():
+        rows = rank_sorted(section, rows, mcaps)
         body = "\n".join(
             make_row(*row, closes, aths,
                      ETF_DESC.get(row[0]) if section == "etf" else None,
-                     ETF_TAG.get(row[0]) if section == "etf" else None)
-            for row in rows)
+                     ETF_TAG.get(row[0]) if section == "etf" else None,
+                     rank)
+            for row, rank in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
         i, j = html.find(start), html.find(end)
@@ -2196,20 +2267,6 @@ def main(html_path):
     print("fetching big-tech financials...")
     html, fin_ok = splice(html, "FIN", build_fin())
 
-    # 시총순위 "현재" 열: 미국 종목의 시가총액을 받아 TOP10을 다시 계산한다.
-    # 실패해도 죽지 않는다 — build_mcap이 수기 예비값으로 대신 그린다.
-    print("fetching market caps for 시총순위...")
-    mcaps = {}
-    for _, label, _, sym, _ in SECTIONS["us30"]:
-        if label == "SPCX":
-            continue
-        try:
-            mc = yf.Ticker(sym).fast_info["market_cap"]
-            if mc and mc > 0:
-                mcaps[sym] = float(mc)
-        except Exception:
-            pass
-    print(f"  시가총액 확보 {len(mcaps)}/{len(SECTIONS['us30']) - 1}")
     html, mcap_ok = splice(html, "MCAP", build_mcap(mcaps))
 
     # 화면에는 "스크립트를 돌린 날"이 아니라 "숫자가 어느 거래일 종가인지"를 적는다.
