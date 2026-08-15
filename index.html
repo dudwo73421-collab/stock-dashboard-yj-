@@ -18,7 +18,31 @@ index.html 안의 <!--SUPP:섹션:START--> ~ <!--SUPP:섹션:END--> 사이를
 개요 탭 지수 카드(<!--IDX-->)를 펼치면 같은 지표가 나온다 — 없어진 매크로·심리
 탭의 표가 하던 역할이다.
 
-또 <!--FNG:START--> ~ <!--FNG:END--> 사이에 공포·탐욕 지수 두 개를 갈아끼운다.
+또 <!--FNG:START-->
+        <div class="fng-grid">
+          <div class="fng-item">
+            <div class="fng-head"><span class="fng-label">미국 주식 (CNN)</span><span class="fng-rating fng-greed">탐욕</span></div>
+            <div class="fng-score">65</div>
+            <div class="fng-bar"><div class="fng-mark" style="left:65%"></div></div>
+            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
+            <div class="fng-prev">2026-08-14 미국장 마감 기준<br>전일 66 · 1주 전 64 · 1달 전 41 · 1년 전 63</div>
+          </div>
+          <div class="fng-item">
+            <div class="fng-head"><span class="fng-label">암호화폐 (alternative.me)</span><span class="fng-rating fng-fear">공포</span></div>
+            <div class="fng-score">34</div>
+            <div class="fng-bar"><div class="fng-mark" style="left:34%"></div></div>
+            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
+            <div class="fng-prev">2026-08-15 기준 (매일 09:00 KST 갱신)<br>전일 29 · 1주 전 30</div>
+          </div>
+          <div class="fng-item">
+            <div class="fng-head"><span class="fng-label">한국 주식 (자체 산출)</span><span class="fng-rating fng-neutral">중립</span></div>
+            <div class="fng-score">46</div>
+            <div class="fng-bar"><div class="fng-mark" style="left:46%"></div></div>
+            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span><span>극도의 탐욕 100</span></div>
+            <div class="fng-prev">2026-08-14 코스피 종가 기준<br>모멘텀 67 · 변동성 4 · 주가강도 64 · 안전자산 선호 61<br>공식 지수가 아니라 공개 데이터로 직접 계산한 값입니다</div>
+          </div>
+        </div>
+      <!--FNG:END--> 사이에 공포·탐욕 지수 두 개를 갈아끼운다.
   미국 주식 : CNN Fear & Greed Index
   암호화폐  : alternative.me Crypto Fear & Greed Index
 둘 중 하나만 실패해도 그쪽만 "확인 필요"로 표시하고 나머지는 정상 표기한다.
@@ -2259,7 +2283,7 @@ def main(html_path):
     html, ecal_ok = splice(html, "EARNCAL", build_earn_cal(earn_rows))
     html, elist_ok = splice(html, "EARNLIST", build_earn_list(earn_rows))
     miss_txt = ("받아오지 못한 종목: " + ", ".join(earn_miss)) if earn_miss else "전 종목 조회 성공"
-    em_s, em_e = "<!--EARNMISS-->", "<!--/EARNMISS-->"
+    em_s, em_e = "<!--EARNMISS-->받아오지 못한 종목: 두산에너빌리티<!--/EARNMISS-->"
     i, j = html.find(em_s), html.find(em_e)
     if i != -1 and j != -1:
         html = html[: i + len(em_s)] + miss_txt + html[j:]
@@ -2281,7 +2305,7 @@ def main(html_path):
     stamp = (f"미국 {close_label(us_d, 'America/New_York', 16, 0)} · "
              f"한국 {close_label(kr_d, 'Asia/Seoul', 15, 30)} "
              f"(자동 갱신 {now_kst.strftime('%m-%d %H:%M')})")
-    ds, de = "<!--SUPPDATE-->", "<!--/SUPPDATE-->"
+    ds, de = "<!--SUPPDATE-->미국 2026-08-14 종가 · 한국 2026-08-14 종가 (자동 갱신 08-15 17:22)<!--/SUPPDATE-->"
     i, j = html.find(ds), html.find(de)
     if i != -1 and j != -1:
         html = html[: i + len(ds)] + stamp + html[j:]
