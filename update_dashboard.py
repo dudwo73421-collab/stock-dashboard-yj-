@@ -362,22 +362,29 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     try:
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
-        name_td = (f'<td>{rank_html}{logo_html}{name}'
-                   f'<span class="supp-ticker">{label}</span>{tag_html}{px}</td>')
         day, dd52, ddath, week, ytd, sd, rsi, mas = compute(close, rate, aths.get(sym))
+        # 접힌 카드에서도 오늘 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청)
+        if day is None or (isinstance(day, float) and math.isnan(day)):
+            dchg = '<span class="supp-dchg needchk">확인 필요</span>'
+        else:
+            dcls = "up" if day > 0 else ("down" if day < 0 else "flat")
+            dchg = f'<span class="supp-dchg {dcls}">{day:+.2f}%</span>'
+        name_td = (f'<td>{rank_html}{logo_html}<span class="supp-name">{name}</span>'
+                   f'<span class="supp-ticker">{label}</span>{tag_html}{px}{dchg}</td>')
         # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
         sign = ("d-up" if day and day > 0 else
                 "d-down" if day and day < 0 else "d-flat")
-        return (f'          <tr class="{sign}">' + name_td + pct_cell(day) + pct_cell(week)
+        # 일간은 제목 띠(supp-dchg)에 있으므로 표에서는 뺀다 (2026-08-15 요청)
+        return (f'          <tr class="{sign}">' + name_td + pct_cell(week)
                 + pct_cell(ytd) + pct_cell(dd52) + pct_cell(ddath)
                 + streak_cell(sd) + f"<td>{rsi:.1f}</td>" + ma_cell(mas)
                 + desc_td + chart_td + "</tr>")
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
-        name_td = (f'<td>{rank_html}{logo_html}{name}'
+        name_td = (f'<td>{rank_html}{logo_html}<span class="supp-name">{name}</span>'
                    f'<span class="supp-ticker">{label}</span></td>')
-        return f"          <tr>{name_td}{nc * 8}{desc_td}{chart_td}</tr>"
+        return f"          <tr>{name_td}{nc * 7}{desc_td}{chart_td}</tr>"
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
