@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+  # -*- coding: utf-8 -*-
 """
 대시보드 보조 지표 자동 갱신 스크립트 (GitHub Actions에서 매일 실행됨)
 
@@ -39,6 +39,11 @@ import urllib.request
 
 import pandas as pd
 import yfinance as yf
+
+try:
+    from zoneinfo import ZoneInfo
+except Exception:                      # 파이썬 3.8 이하에서도 죽지는 않게
+    ZoneInfo = None
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -176,7 +181,10 @@ def rsi14(close: pd.Series) -> float:
     avg_loss = loss.ewm(alpha=1 / 14, min_periods=14).mean()
     rs = avg_gain / avg_loss
     val = 100 - (100 / (1 + rs))
-    return float(val.iloc[-1])
+    v = float(val.iloc[-1])
+    # 14일 내내 종가가 같으면(거래정지·상한가 고정 등) 0/0이라 nan이 나온다.
+    # 그대로 두면 화면에 "nan"이라고 찍히므로 없는 값으로 돌려준다.
+    return v if math.isfinite(v) else None
 
 
 def compute(close: pd.Series, rate: bool, ath: float | None = None):
@@ -196,22 +204,30 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
 
     day = (last / float(close.iloc[-2]) - 1) * 100 if len(close) >= 2 else None
 
-    high52 = float(close.tail(252).max())
-    drawdown = (last / high52 - 1) * 100
-
+    # 252거래일(약 1년)이 안 되는 종목은 "52주 고점/저점"을 계산하지 않는다.
+    # 상장한 지 두 달 된 종목의 46일치 최고가를 "52주 고점"이라고 적으면 거짓이다.
+    # 이평선(mas)이 데이터가 모자라면 "–"로 두는 것과 같은 원칙.
+    full_year = len(close) >= 252
+    win = close.tail(252)
+    high52 = float(win.max()) if full_year else None
+    low52 = float(win.min()) if full_year else None
+    drawdown = (last / high52 - 1) * 100 if high52 else None
     # 52주 저점 대비 상승률 — 고점대비만 있으면 "바닥에서 얼마나 올라왔나"가 안 보인다
-    low52 = float(close.tail(252).min())
-    up52 = (last / low52 - 1) * 100 if low52 > 0 else None
+    up52 = (last / low52 - 1) * 100 if low52 else None
 
     ath_dd = None
     if ath is not None and ath > 0:
         # 전체 기간 최고값은 최근 1년 최고값보다 낮을 수 없다. 낮게 나오면
-        # 전체 기간 시세를 제대로 못 받은 것이므로 값을 쓰지 않는다.
-        ath_dd = (last / max(ath, high52) - 1) * 100
+        # 전체 기간 시세를 제대로 못 받은 것이므로 큰 쪽을 쓴다.
+        base = max(ath, high52) if high52 else max(ath, float(win.max()))
+        ath_dd = (last / base - 1) * 100
 
     week = (last / float(close.iloc[-6]) - 1) * 100 if len(close) >= 6 else None
 
-    this_year = close.index[-1].year
+    # YTD 기준은 "실행한 날의 연도"가 아니라 "이 시세의 마지막 거래일 연도"다.
+    # 1월 1일 한국시간에 돌리면 미국 시세는 아직 작년이라, KST 연도로 라벨을 붙이면
+    # 작년 한 해 수익률에 새해 연도가 붙는다.
+    this_year = int(close.index[-1].year)
     prev = close[close.index.year < this_year]
     ytd = (last / float(prev.iloc[-1]) - 1) * 100 if len(prev) else None
 
@@ -243,7 +259,13 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
         ma200 = float(close.tail(200).mean())
         score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
         rating = RATING_LABEL[score]
-    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas, up52
+    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas, up52, this_year
+
+
+def rsi_cell(v):
+    if v is None:
+        return '<td class="needchk">확인 필요</td>'
+    return f"<td>{v:.1f}</td>"
 
 
 def na_cell(why):
@@ -264,19 +286,40 @@ def per_cell(v):
     return f"<td>{v:,.1f}배</td>"
 
 
-def turnover_cell(v, cur):
+def is_intraday(sym, bar_date):
+    """그 종목의 마지막 봉이 아직 진행 중인 장의 것인지."""
+    if sym.endswith((".KS", ".KQ")):
+        tz, ch, cm = "Asia/Seoul", 15, 30
+    else:
+        tz, ch, cm = "America/New_York", 16, 0
+    try:
+        now = datetime.datetime.now(ZoneInfo(tz))
+        return bar_date == now.date() and (now.hour, now.minute) < (ch, cm)
+    except Exception:
+        return False
+
+
+def turnover_cell(v, cur, intraday=False):
     """거래대금. 원/달러 단위를 섞지 않도록 통화 기호를 같이 적는다."""
     if v is None or (isinstance(v, float) and math.isnan(v)) or v <= 0:
         return '<td class="needchk">확인 필요</td>'
     if cur == "KRW":
-        return (f"<td>{v / 1e12:.2f}조원</td>" if v >= 1e12
-                else f"<td>{v / 1e8:,.0f}억원</td>")
-    return (f"<td>${v / 1e9:.2f}B</td>" if v >= 1e9 else f"<td>${v / 1e6:,.0f}M</td>")
+        txt = (f"{v / 1e12:.2f}조원" if v >= 1e12 else f"{v / 1e8:,.0f}억원")
+    else:
+        txt = (f"${v / 1e9:.2f}B" if v >= 1e9 else f"${v / 1e6:,.0f}M")
+    if intraday:
+        return (f'<td class="na" title="장이 아직 안 끝나서 확정 거래대금이 아닙니다">'
+                f'{txt} <span class="live-tag">장중</span></td>')
+    return f"<td>{txt}</td>"
 
 
-def volmul_cell(v):
+def volmul_cell(v, intraday=False):
     """평소(최근 20거래일 중앙값) 대비 거래량 배수. 2배가 넘으면 뭔가 있었다는 뜻이라
     색으로 표시하고, 그 아래는 담담하게 숫자만 둔다."""
+    if intraday:
+        # 진행 중인 거래량을 20일 중앙값과 비교하면 오전엔 항상 "0.1배"가 나온다.
+        # 그건 거래가 죽은 게 아니라 아직 안 쌓인 것이라, 숫자를 내지 않는다.
+        return na_cell("장이 끝나야 평소 대비 배수를 낼 수 있습니다")
     if v is None or (isinstance(v, float) and math.isnan(v)) or v <= 0:
         return '<td class="needchk">확인 필요</td>'
     cls = "vol-hot" if v >= 2 else ("vol-warm" if v >= 1.5 else "")
@@ -402,7 +445,7 @@ def name_class(name):
     return "supp-name"
 
 
-def chg_stack(day, week, ytd):
+def chg_stack(day, week, ytd, base_yr=None):
     """제목 띠 오른쪽에 붙는 일간/주간/올해 등락 세 줄.
 
     값이 없으면 지어내지 않고 "확인 필요"로 둔다. 줄 수는 값이 있든 없든 항상 셋이라
@@ -423,12 +466,12 @@ def chg_stack(day, week, ytd):
         cls = "up" if v > 0 else ("down" if v < 0 else "flat")
         return (f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
                 f'<span class="{cls_name} {cls}">{v:+.2f}%</span></div>')
-    yr = datetime.datetime.now(KST).year
+    yr = base_yr if base_yr else datetime.datetime.now(KST).year
     return ('<div class="supp-chg">'
             + one("일간", day, "supp-dchg")
             + one("주간", week, "supp-wchg")
             + one(f"{yr % 100}년", ytd, "supp-ychg",
-                  f"{yr}년 첫 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다")
+                  f"{yr - 1}년 마지막 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다")
             + "</div>")
 
 
@@ -456,6 +499,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     # 거래대금·거래량 배수 — 등락률만으로는 "오늘 왜 움직였나"를 못 본다.
     # 평소의 2배 넘게 거래되면 뉴스가 있었다는 뜻이라 색으로 표시한다.
     turnover = volmul = None
+    intraday = False
     if vols is not None:
         try:
             v = vols[sym].dropna()
@@ -465,6 +509,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                 med = float(v.tail(21).iloc[:-1].median())
                 turnover = last_v * float(c.iloc[-1])
                 volmul = last_v / med if med > 0 else None
+                # 2시간마다 돌기 때문에 장이 열려 있는 동안에도 실행된다. 그때
+                # 마지막 봉은 아직 쌓이는 중인 거래량이라, 20일 중앙값과 비교하면
+                # 오전엔 늘 "0.1배"가 나와서 거래가 죽은 날처럼 보인다.
+                # 확정값이 아니면 배수를 숫자로 내지 않는다.
+                intraday = is_intraday(sym, v.index[-1].date())
         except Exception as e:
             print(f"  [warn] {sym} 거래량: {e}", file=sys.stderr)
     cur = "KRW" if sym.endswith((".KS", ".KQ")) else "USD"
@@ -479,10 +528,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     try:
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
-        day, dd52, ddath, week, ytd, sd, rsi, mas, up52 = compute(close, rate, aths.get(sym))
+        day, dd52, ddath, week, ytd, sd, rsi, mas, up52, base_yr = compute(
+            close, rate, aths.get(sym))
         # 접힌 카드에서도 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청).
         # 일간 아래 주간까지 두 줄로 쌓는다 (2026-08-16 요청).
-        chg_html = chg_stack(day, week, ytd)
+        chg_html = chg_stack(day, week, ytd, base_yr)
         # 제목 띠는 두 줄이다 — 왼쪽 위: 이름·티커, 왼쪽 아래: 가격.
         # 오른쪽에는 일간/주간 등락이 두 줄로 붙는다.
         # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
@@ -497,8 +547,8 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         return (f'          <tr class="{sign}">' + name_td
                 + pct_cell(up52) + pct_cell(dd52) + pct_cell(ddath)
                 + per_html
-                + turnover_cell(turnover, cur) + volmul_cell(volmul)
-                + streak_cell(sd) + f"<td>{rsi:.1f}</td>" + ma_cell(mas)
+                + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
+                + streak_cell(sd) + rsi_cell(rsi) + ma_cell(mas)
                 + desc_td + chart_td + "</tr>")
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
@@ -509,7 +559,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                    f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
                    f'</div>{chg_stack(None, None, None)}</td>')
         return (f"          <tr>{name_td}{nc * 3}{per_html}"
-                + turnover_cell(turnover, cur) + volmul_cell(volmul)
+                + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
                 + f"{nc * 3}{desc_td}{chart_td}</tr>")
 
 
@@ -1429,7 +1479,7 @@ def idx_metrics(s, sym, ath):
                            f'<span class="im-v">{float(s.tail(252).min()):.2f}~'
                            f'{float(s.tail(252).max()):.2f}%p</span>'))
         return '<div class="idx-metrics">' + "".join(rows) + "</div>"
-    day, dd52, ddath, week, ytd, sd, rsi, mas, up52 = compute(s, False, ath)
+    day, dd52, ddath, week, ytd, sd, rsi, mas, up52, base_yr = compute(s, False, ath)
     streak, direction = sd
     st = ('<span class="im-v needchk">보합</span>' if streak == 0 else
           f'<span class="im-v up">{streak}일 상승</span>' if direction > 0 else
@@ -1437,27 +1487,44 @@ def idx_metrics(s, sym, ath):
     ma_html = ma_cell(mas).replace('<td class="ma-td">', '<span class="im-v">') \
                           .replace("</td>", "</span>")
     rows = [im_row("일간", im_pct(day)), im_row("주간", im_pct(week)),
-            im_row("26년 YTD", im_pct(ytd)), im_row("52주 저점대비", im_pct(up52)),
+            im_row(f"{base_yr % 100}년 YTD", im_pct(ytd)), im_row("52주 저점대비", im_pct(up52)),
             im_row("52주 고점대비", im_pct(dd52)),
             im_row("사상최고 대비", im_pct(ddath)), im_row("연속", st),
-            im_row("RSI", f'<span class="im-v">{rsi:.1f}</span>'),
+            im_row("RSI", f'<span class="im-v">{rsi:.1f}</span>' if rsi is not None
+                   else '<span class="im-v needchk">확인 필요</span>'),
             im_row("이평선", ma_html)]
     return '<div class="idx-metrics">' + "".join(rows) + "</div>"
 
 
-def idx_card(name, label, tvsym, last, prev, digits, metrics=""):
-    """지수 카드 하나. 클릭하면 보조지표와 차트가 펼쳐지도록 <details>로 감싼다."""
+def idx_card(name, label, tvsym, last, prev, digits, metrics="", is_pp=False):
+    """지수 카드 하나. 클릭하면 보조지표와 차트가 펼쳐지도록 <details>로 감싼다.
+
+    is_pp=True는 값 자체가 이미 %인 계열(하이일드 스프레드)이다. 3.00 → 3.10을
+    "+3.33%"라고 적으면 10bp 벌어진 걸 3.3% 움직인 것으로 읽게 되므로, 이럴 땐
+    비율이 아니라 %p 차이로 적는다. 펼친 지표 표는 이미 %p로 적고 있었는데
+    접힌 카드 머리만 빠져 있었다.
+    """
     chg = last - prev
-    pct = (last / prev - 1) * 100 if prev else 0.0
     cls = "up" if chg > 0 else ("down" if chg < 0 else "flat")
     sign = "+" if chg > 0 else ""
+    if is_pp:
+        head = f"{sign}{num(chg, digits)}%p"
+        sub = f"{num(chg * 100, 0)}bp"
+    elif not prev:
+        # 전일 값이 0이면 비율을 낼 수 없다. 0.00%라고 적으면 "안 움직였다"는
+        # 거짓말이 되므로 확인 필요로 둔다.
+        head, sub = "확인 필요", ""
+        cls = "needchk"
+    else:
+        head = f"{sign}{(last / prev - 1) * 100:.2f}%"
+        sub = f"{sign}{num(chg, digits)}"
     return (
         '          <details class="idx-card">\n'
         '            <summary class="idx-sum">\n'
         f'              <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
         f'              <div class="idx-val">{num(last, digits)}</div>\n'
-        f'              <div class="idx-chg {cls}">{sign}{pct:.2f}%'
-        f'<span class="idx-abs">{sign}{num(chg, digits)}</span></div>\n'
+        f'              <div class="idx-chg {cls}">{head}'
+        f'<span class="idx-abs">{sub}</span></div>\n'
         '              <span class="idx-more">지표·차트</span>\n'
         '            </summary>\n'
         f'            {metrics}\n'
@@ -1495,7 +1562,8 @@ def build_idx(closes, aths=None):
                 print(f"  [warn] 지수 지표 {sym}: {me}", file=sys.stderr)
                 metrics = ""
             cards.append(idx_card(name, label, tvsym,
-                                  float(s.iloc[-1]), float(s.iloc[-2]), digits, metrics))
+                                  float(s.iloc[-1]), float(s.iloc[-2]), digits, metrics,
+                                  is_pp=sym.startswith("FRED:")))
             ok += 1
         except Exception as e:
             print(f"  [warn] 지수 {sym}: {e}", file=sys.stderr)
@@ -1778,10 +1846,21 @@ def mcap_fmt(cap):
 
 
 def mcap_live_rows(mcaps):
-    """야후 시가총액으로 현재 TOP10을 만든다. 못 미더우면 None."""
-    if not mcaps or len(mcaps) < 30:
-        return None
+    """야후 시가총액으로 현재 TOP10을 만든다. 못 미더우면 None.
+
+    확보율은 반드시 "미국 종목만" 세야 한다. mcaps에는 한국 종목도 같이 들어
+    있어서 전체 개수로 재면, 한국 20개가 다 들어오고 미국이 10개만 성공해도
+    문턱을 넘는다. 그러면 애플·알파벳이 통째로 빠진 순위가 "자동 계산"이라는
+    설명을 달고 나간다.
+    """
     us30 = {sym: (name, label) for name, label, _, sym, _ in SECTIONS["us30"]}
+    if not mcaps:
+        return None
+    have_us = [c for sym, c in mcaps.items() if sym in us30]
+    if len(have_us) < len(us30) * 0.8:
+        print(f"  [warn] 시총순위: 미국 시가총액이 {len(have_us)}/{len(us30)}개뿐이라 "
+              "자동 순위를 쓰지 않고 수기 예비값으로 그립니다", file=sys.stderr)
+        return None
     ranked = []
     for sym, cap in sorted(mcaps.items(), key=lambda kv: -kv[1]):
         if sym not in us30:        # 한국 종목 시가총액도 같이 받아오므로 걸러낸다
@@ -1793,7 +1872,7 @@ def mcap_live_rows(mcaps):
         if len(ranked) == 10:
             break
     # 1위가 $1조도 안 되면 시가총액을 잘못 받은 것이다
-    if len(ranked) < 10 or max(v for k, v in mcaps.items() if k in us30) < 1e12:
+    if len(ranked) < 10 or max(have_us) < 1e12:
         return None
     return ranked
 
@@ -1975,25 +2054,48 @@ def yld_item(label, val, prev, m1, y1, unit="%"):
 
 
 def build_yield(closes):
-    def pick(sym):
+    """미 10년물·2년물과 장단기 금리차.
+
+    두 금리를 각각 iloc[-1]로 뽑아 빼면 안 된다. ^TNX는 미국 정규장에만 찍히고
+    2YY=F는 거의 24시간 찍혀서, 한국 아침에 돌리면 마지막 봉 날짜가 하루 어긋난다.
+    서로 다른 날의 두 금리를 빼면 금리차가 몇 bp씩 틀어지고, 0 근처에서는
+    "역전이다/아니다" 판정 자체가 뒤집힐 수 있다. 그래서 두 계열에 공통으로
+    존재하는 날짜만 남긴 뒤에 계산한다.
+    """
+    s10 = closes.get(Y10)
+    s02 = closes.get(Y02)
+    s10 = s10.dropna() if s10 is not None else None
+    s02 = s02.dropna() if s02 is not None else None
+    aligned = False
+    if s10 is not None and s02 is not None:
+        common = s10.index.intersection(s02.index)
+        if len(common) >= 2:
+            s10, s02 = s10.loc[common], s02.loc[common]
+            aligned = True
+        else:
+            print("  [warn] 금리: 10년물과 2년물의 공통 거래일이 2일 미만이라 "
+                  "금리차를 계산하지 않습니다", file=sys.stderr)
+
+    def pick(s):
         try:
-            s = closes[sym].dropna()
-            if len(s) < 2:
+            if s is None or len(s) < 2:
                 return None, None, None, None
             return float(s.iloc[-1]), ago(s, 1), ago(s, 21), ago(s, 252)
         except Exception as e:
-            print(f"  [warn] 금리 {sym}: {e}", file=sys.stderr)
+            print(f"  [warn] 금리: {e}", file=sys.stderr)
             return None, None, None, None
 
-    t10, p10, m10, y10 = pick(Y10)
-    t02, p02, m02, y02 = pick(Y02)
-
+    t10, p10, m10, y10 = pick(s10)
+    t02, p02, m02, y02 = pick(s02)
     items = [yld_item("미 10년물", t10, p10, m10, y10),
              yld_item("미 2년물", t02, p02, m02, y02)]
 
-    if t10 is None or t02 is None:
+    # 개별 금리는 각자 최신값을 그대로 보여준다. 다만 "차"는 같은 날짜끼리만 뺀다.
+    if t10 is None or t02 is None or not aligned:
         items.append(yld_item("장단기 금리차 (10년 − 2년)", None, None, None, None))
-        state = '<span class="needchk">두 금리를 다 받아와야 계산할 수 있습니다</span>'
+        state = ('<span class="needchk">두 금리의 거래일을 맞추지 못해 금리차를 '
+                 "계산하지 않았습니다</span>" if (t10 is not None and t02 is not None)
+                 else '<span class="needchk">두 금리를 다 받아와야 계산할 수 있습니다</span>')
     else:
         sp = t10 - t02
         spp = (p10 - p02) if (p10 is not None and p02 is not None) else None
@@ -2041,10 +2143,27 @@ def earn_targets():
     return out
 
 
+def market_today(sym):
+    """그 종목이 상장된 시장의 "오늘" 날짜.
+
+    한국시간 자정~오후 1시 사이에는 KST 날짜가 미국보다 하루 앞선다. 그때 미국
+    종목의 발표일을 KST 날짜로 거르면, 오늘 밤 뉴욕에서 발표하는 회사가 "이미
+    지난 날짜"로 취급돼 목록에서 통째로 빠진다.
+    """
+    if sym.endswith((".KS", ".KQ")):
+        return datetime.datetime.now(KST).date()
+    try:
+        return datetime.datetime.now(ZoneInfo("America/New_York")).date()
+    except Exception:
+        # 시간대 정보를 못 읽으면 KST 기준으로 두되, 하루 앞서 잘라내지 않도록
+        # 하루 여유를 준다 — 놓치는 것보다 하루 지난 걸 한 번 더 보는 게 낫다.
+        return datetime.datetime.now(KST).date() - datetime.timedelta(days=1)
+
+
 def fetch_earnings(sym):
     """(날짜, 확정여부) 또는 None. 오늘 이후 가장 가까운 발표일 하나만."""
     t = yf.Ticker(sym)
-    today = datetime.datetime.now(KST).date()
+    today = market_today(sym)
 
     # 1순위: calendar — 날짜가 1개면 확정, 2개면 추정 구간
     try:
@@ -2073,6 +2192,7 @@ def fetch_earnings(sym):
 
 
 def collect_earnings():
+    # 창의 시작점은 각 시장의 오늘(fetch_earnings 안에서 처리), 창의 길이만 여기서 잡는다.
     today = datetime.datetime.now(KST).date()
     limit = today + datetime.timedelta(days=EARN_WINDOW)
     rows, miss = [], []
@@ -2091,7 +2211,10 @@ def collect_earnings():
         rows.append((d, name, short, confirmed))
     rows.sort(key=lambda r: (r[0], r[2]))
     print(f"  실적일 {len(rows)}건 수집, {len(miss)}종목 미확인")
-    return rows[:EARN_MAX], miss
+    # 여기서 자르지 않는다. 날짜순이라 잘리는 건 항상 뒤쪽 = 달력 둘째 달이어서,
+    # 미리 자르면 9~10월 일정이 통째로 사라진다. 개수 제한은 아래 목록 카드에만
+    # 적용하고(build_earn_list), 달력은 받은 걸 다 그린다.
+    return rows, miss
 
 
 def build_earn_list(rows):
@@ -2099,7 +2222,10 @@ def build_earn_list(rows):
         return ('        <div class="earn-empty">앞으로 '
                 f'{EARN_WINDOW}일 안에 잡힌 발표일을 하나도 받아오지 못했습니다 (확인 필요)</div>')
     out = []
-    for d, name, short, confirmed in rows:
+    cut = len(rows) - EARN_MAX
+    if cut > 0:
+        print(f"  목록 카드에는 가까운 {EARN_MAX}건만 싣습니다 (뒤쪽 {cut}건은 달력에만)")
+    for d, name, short, confirmed in rows[:EARN_MAX]:
         tag = "확정" if confirmed else "예상일 (미확정)"
         wd = WEEKDAYS_KO[(d.weekday() + 1) % 7]
         out.append(
@@ -2269,6 +2395,40 @@ SECTOR_ORDER = ["반도체", "인터넷·소프트웨어", "하드웨어·네트
                 "에너지·전력", "항공우주·방산"]
 
 
+def check_tables():
+    """서로 맞춰 둬야 하는 표들이 어긋나지 않았는지 시작하자마자 확인한다.
+
+    종목을 새로 넣고 SECTOR_OF에 안 적으면, 그 종목은 아무 경고 없이 히트맵에서
+    빠지고 업종 평균에서도 빠진다. 조용히 사라지는 것보다 Actions가 빨간색으로
+    실패하는 편이 낫다는 판단(2026-08-16 영재님 선택).
+    """
+    secs = [sym for k in ("us30", "kr10") for *_, sym, _ in SECTIONS[k]]
+    problems = []
+    gap = [x for x in secs if x not in SECTOR_OF]
+    if gap:
+        problems.append(f"SECTOR_OF에 없는 종목: {gap}")
+    dead = [k for k in SECTOR_OF if k not in secs]
+    if dead:
+        problems.append(f"SECTIONS에서 사라진 SECTOR_OF 항목: {dead}")
+    bad = sorted(set(SECTOR_OF.values()) - set(SECTOR_ORDER))
+    if bad:
+        problems.append(f"SECTOR_ORDER에 없는 업종: {bad}")
+    empty = [g for g in SECTOR_ORDER if g not in set(SECTOR_OF.values())]
+    if empty:
+        problems.append(f"소속 종목이 없는 업종: {empty}")
+    etfs = [n for n, *_ in SECTIONS["etf"]]
+    for nm, d in (("ETF_DESC", ETF_DESC), ("ETF_TAG", ETF_TAG)):
+        miss = [n for n in etfs if n not in d]
+        if miss:
+            problems.append(f"{nm}에 없는 ETF: {miss}")
+    dup = [x for x in set(secs) if secs.count(x) > 1]
+    if dup:
+        problems.append(f"중복된 종목: {dup}")
+    if problems:
+        raise SystemExit("[error] 표가 서로 어긋났습니다 — 고치고 다시 돌리세요:\n  - "
+                         + "\n  - ".join(problems))
+
+
 def sector_step(v):
     """등락률 → 색 단계. 빨강(상승) 4단계 · 중립 · 파랑(하락) 4단계.
     발산형이라 가운데는 색이 아니라 회색이고, 양쪽 팔의 구간 폭이 같다.
@@ -2290,7 +2450,12 @@ def build_sector(closes):
     "업종이 움직였나"를 못 본다. 대신 칸을 누르면 종목별 값이 다 나온다.
     한 종목도 못 받아온 섹터는 지어내지 않고 "확인 필요"로 둔다.
     """
-    per_sector = {}
+    # 미국과 한국은 마지막 거래일이 다르다. 한국 낮에 돌리면 한국 종목은 오늘,
+    # 미국 종목은 어젯밤 값이다. 둘을 한 칸에 평균하는 것 자체는 "각 시장의 직전
+    # 세션 대비"라는 뜻으로 유효하지만, 그냥 "전일 대비"라고만 적으면 같은 날짜인
+    # 줄 오해하게 된다. 그래서 기준일을 시장별로 뽑아 칸마다 밝혀 둔다.
+    ref = {k: last_close_date(closes, [r[3] for r in SECTIONS[k]]) for k in ("us30", "kr10")}
+    per_sector, stale = {}, []
     for sec in ("us30", "kr10"):
         for name, _label, _dom, sym, _r in SECTIONS[sec]:
             g = SECTOR_OF.get(sym)
@@ -2300,62 +2465,88 @@ def build_sector(closes):
                 c = closes[sym].dropna()
                 if len(c) < 2:
                     raise ValueError("데이터 부족")
+                # 그 시장의 최신 거래일보다 뒤처진 종목(거래정지 등)은 평균에서 뺀다.
+                # 며칠 전 등락을 오늘 값인 것처럼 섞으면 업종 평균이 흐려진다.
+                if ref[sec] and c.index[-1].date() < ref[sec]:
+                    stale.append(name)
+                    raise ValueError("기준일보다 뒤처진 시세")
                 d = (float(c.iloc[-1]) / float(c.iloc[-2]) - 1) * 100
             except Exception:
                 d = None
-            per_sector.setdefault(g, []).append((name, d))
+            per_sector.setdefault(g, []).append((name, d, sec))
 
-    missing = [s for s, _ in SECTOR_OF.items() if s not in closes]
-    if missing:
-        print(f"  [warn] 섹터 히트맵: 시세를 못 받은 종목 {len(missing)}개", file=sys.stderr)
+    if stale:
+        print(f"  [warn] 섹터 히트맵: 기준일보다 뒤처져 평균에서 뺀 종목 "
+              f"{len(stale)}개 ({', '.join(stale[:6])})", file=sys.stderr)
+    dstr = " · ".join(f"{'미국' if k == 'us30' else '한국'} "
+                      f"{ref[k].isoformat() if ref[k] else '확인 필요'}"
+                      for k in ("us30", "kr10"))
 
     tiles = []
     for g in SECTOR_ORDER:
         members = per_sector.get(g, [])
-        got = [d for _n, d in members if d is not None]
+        got = [d for _n, d, _s in members if d is not None]
         avg = sum(got) / len(got) if got else None
         step = sector_step(avg)
         head = (f'{avg:+.2f}%' if avg is not None else "확인 필요")
+        mkts = sorted({s for _n, _d, s in members})
+        tip = (f"{g} · 동일가중 평균 · 기준일 " +
+               " · ".join(f"{'미국' if k == 'us30' else '한국'} "
+                          f"{ref[k].isoformat() if ref[k] else '확인 필요'}" for k in mkts) +
+               (" · 두 시장이 섞여 있어 기준일이 서로 다를 수 있습니다"
+                if len(mkts) > 1 else ""))
         detail = "".join(
-            f'<div class="sec-m"><span class="sec-mn">{n}</span>'
+            f'<div class="sec-m"><span class="sec-mn">{n}'
+            + ('<span class="sec-mk">한</span>' if sec == "kr10" else "")
+            + "</span>"
             + (f'<span class="sec-mv {"up" if d > 0 else "down" if d < 0 else "flat"}">'
                f'{d:+.2f}%</span>' if d is not None
                else '<span class="sec-mv needchk">확인 필요</span>')
             + "</div>"
-            for n, d in sorted(members, key=lambda x: (x[1] is None, -(x[1] or 0))))
+            for n, d, sec in sorted(members, key=lambda x: (x[1] is None, -(x[1] or 0))))
         cnt = f"{len(got)}/{len(members)}" if len(got) != len(members) else str(len(members))
         tiles.append(
             '        <details class="sec-tile">\n'
-            f'          <summary class="sec-sum {step}">\n'
+            f'          <summary class="sec-sum {step}" title="{tip}">\n'
             f'            <span class="sec-name">{g}</span>\n'
             f'            <span class="sec-val">{head}</span>\n'
             f'            <span class="sec-cnt">{cnt}종목</span>\n'
             '          </summary>\n'
             f'          <div class="sec-list">{detail}</div>\n'
             '        </details>')
-    return ('      <div class="sec-grid">\n' + "\n".join(tiles) + "\n      </div>")
+    return ('      <div class="sec-note">기준일 ' + dstr +
+            ' · <span class="sec-mk">한</span> 표시가 한국 종목입니다</div>\n'
+            '      <div class="sec-grid">\n' + "\n".join(tiles) + "\n      </div>")
 
 
 def load_ath_cache():
-    """저장해 둔 사상최고 값을 읽는다. 없거나 깨져 있으면 빈 값으로 시작한다."""
+    """저장해 둔 사상최고 값을 읽는다. 없거나 깨져 있으면 빈 값으로 시작한다.
+
+    tried는 "전체 기간 조회를 한 번이라도 시도해 본 심볼" 목록이다. 야후가 끝내
+    시세를 안 주는 심볼(비상장 선물 등)이 하나라도 있으면, 이게 없을 때 '아직 못
+    받은 종목이 있다'는 판단이 영영 참이 되어 4분짜리 전체 조회를 매 실행마다
+    다시 돌게 된다.
+    """
     try:
         with open(ATH_CACHE, encoding="utf-8") as f:
             d = json.load(f)
         aths = {k: float(v) for k, v in d.get("aths", {}).items()
                 if isinstance(v, (int, float)) and math.isfinite(float(v)) and v > 0}
-        return aths, d.get("date", "")
+        return aths, d.get("date", ""), set(d.get("tried", []))
     except FileNotFoundError:
-        return {}, ""
+        return {}, "", set()
     except Exception as e:
         print(f"  [warn] {ATH_CACHE} 읽기 실패, 새로 만듭니다: {e}", file=sys.stderr)
-        return {}, ""
+        return {}, "", set()
 
 
-def save_ath_cache(aths, date_str):
+def save_ath_cache(aths, date_str, tried=()):
     """사상최고 값을 저장한다. 실패해도 대시보드 갱신은 계속 진행한다."""
     try:
         with open(ATH_CACHE, "w", encoding="utf-8") as f:
-            json.dump({"date": date_str, "aths": {k: round(v, 6) for k, v in sorted(aths.items())}},
+            json.dump({"date": date_str,
+                       "tried": sorted(tried),
+                       "aths": {k: round(v, 6) for k, v in sorted(aths.items())}},
                       f, ensure_ascii=False, indent=0, sort_keys=True)
     except Exception as e:
         print(f"  [warn] {ATH_CACHE} 저장 실패: {e}", file=sys.stderr)
@@ -2395,7 +2586,6 @@ def close_label(d, tzname, close_h, close_m):
     if d is None:
         return "확인 필요"
     try:
-        from zoneinfo import ZoneInfo
         now = datetime.datetime.now(ZoneInfo(tzname))
         if d == now.date() and (now.hour, now.minute) < (close_h, close_m):
             return f"{d.isoformat()} 장중"
@@ -2414,6 +2604,7 @@ def splice(html, marker, body):
 
 
 def main(html_path):
+    check_tables()          # 표끼리 어긋났으면 여기서 멈춘다 (조용히 빠지는 것 방지)
     all_syms = sorted(
         ({sym for rows in SECTIONS.values() for _, _, _, sym, _ in rows}
          | {sym for _, _, sym, _, _ in INDEXES}      # 개요 탭 주요 지수 카드
@@ -2448,12 +2639,14 @@ def main(html_path):
     # 여기서 실패해도 표 전체가 죽으면 안 되므로, 실패하면 aths를 비워 두고
     # "사상최고 대비" 칸만 확인 필요로 남긴다 — 값을 만들어 채우지 않는다.
     today_kst = datetime.datetime.now(KST).date().isoformat()
-    aths, cache_date = load_ath_cache()
+    aths, cache_date, tried = load_ath_cache()
 
     # 하루 한 번은 전체 기간을 다시 받는다. 액면분할이 생기면 auto_adjust가 과거 주가를
     # 소급해서 낮추기 때문에, 저장해 둔 값을 계속 쓰면 분할 전 고점이 그대로 남아
     # "사상최고 대비"가 실제보다 나쁘게 나온다. 그래서 캐시를 믿되 매일 한 번 갈아엎는다.
-    missing = [s for s in all_syms if s not in aths]
+    # "아직 시도조차 안 해 본 심볼"만 센다. 시도했는데 야후가 값을 안 준 심볼까지
+    # 세면 need_full이 영원히 참이 되어 캐시가 무의미해진다.
+    missing = [s for s in all_syms if s not in aths and s not in tried]
     need_full = (cache_date != today_kst) or bool(missing)
     full_ok = False
     if need_full:
@@ -2473,8 +2666,14 @@ def main(html_path):
                         got += 1
                 except Exception:
                     pass
-            full_ok = got > 0
+            tried.update(all_syms)     # 값을 못 받은 심볼도 "시도했음"으로 남긴다
+            # 거의 다 실패한 실행을 성공으로 찍으면, 캐시 날짜가 오늘로 박히면서
+            # 그날 하루 종일 전체 조회를 건너뛰게 된다. 9할은 받아야 성공으로 본다.
+            full_ok = got >= len(all_syms) * 0.9
             print(f"  사상최고 확보 {got}/{len(all_syms)} (전체 조회)")
+            if not full_ok:
+                print(f"  [warn] 전체 조회가 {got}/{len(all_syms)}밖에 안 돼 캐시 날짜를 "
+                      "갱신하지 않습니다 — 다음 실행에서 다시 시도합니다", file=sys.stderr)
         except Exception as e:
             # 전체 조회가 실패해도 저장해 둔 값이 있으면 그걸 계속 쓴다.
             print(f"  [warn] 전체 기간 시세 실패: {e}", file=sys.stderr)
@@ -2493,14 +2692,22 @@ def main(html_path):
             continue
         if not math.isfinite(hi):
             continue
-        if sym not in aths or hi > aths[sym]:
-            if sym in aths:
-                bumped += 1
+        # 이미 "진짜 전체 기간 최고가"를 아는 종목만 위로 갱신한다.
+        # 모르는 종목에 15개월 최고가를 대신 넣으면, 1년보다 더 전에 고점을 찍은
+        # 종목의 "사상최고 대비"가 실제보다 덜 빠진 것처럼 조용히 틀리게 나온다.
+        # 값이 없으면 없는 대로 두고 화면에는 "확인 필요"가 나가게 한다.
+        if sym in aths and hi > aths[sym]:
+            bumped += 1
             aths[sym] = hi
     if bumped:
         print(f"  사상최고 갱신 {bumped}종목 (최근 15개월 중 신고가)")
+    no_ath = [s for s in all_syms if s not in aths and not s.startswith("FRED:")]
+    if no_ath:
+        print(f'  [warn] 사상최고를 모르는 종목 {len(no_ath)}개 — 그 칸은 "확인 필요"로 '
+              f"둡니다: {', '.join(no_ath[:10])}{'…' if len(no_ath) > 10 else ''}",
+              file=sys.stderr)
     # 전체 조회가 실패했으면 날짜를 오늘로 찍지 않는다. 그래야 다음 실행에서 다시 시도한다.
-    save_ath_cache(aths, today_kst if full_ok else cache_date)
+    save_ath_cache(aths, today_kst if full_ok else cache_date, tried)
 
     print(f"downloading {len(FRED_SYMS)} FRED series...")
     for sym in FRED_SYMS:
