@@ -319,8 +319,6 @@ def tv_symbol(label, sym):
         return "KRX:" + sym[:-3]
     if sym.endswith(".KQ"):
         return "KOSDAQ:" + sym[:-3]
-    if label == "SPCX":            # 스페이스X는 상장 종목이 아니라 차트가 없다
-        return None
     return label
 
 
@@ -344,6 +342,43 @@ def rank_sorted(section, rows, mcaps):
     return [(r, i) for i, r in enumerate(have, 1)] + [(r, None) for r in missing]
 
 
+def name_class(name):
+    """이름 길이에 따라 글자 크기 단계를 고른다 (2026-08-16).
+
+    "어플라이드머티리얼즈"·"삼성바이오로직스" 같은 긴 이름은 기본 12.8px로는 좁은
+    카드에서 잘린다. 카드 폭을 키우면 한 줄에 들어가는 개수가 줄어드니, 대신 이름
+    글자만 단계적으로 줄여서 어느 화면 폭에서도 이름이 다 보이게 한다.
+    실제 크기는 index.html의 .supp-name.len-m / .len-l / .len-xl 에 있다.
+    """
+    n = len(name)
+    if n >= 10:
+        return "supp-name len-xl"
+    if n >= 8:
+        return "supp-name len-l"
+    if n >= 6:
+        return "supp-name len-m"
+    return "supp-name"
+
+
+def chg_stack(day, week):
+    """제목 띠 오른쪽에 붙는 일간/주간 등락 두 줄.
+
+    값이 없으면 지어내지 않고 "확인 필요"로 둔다. 줄 수는 값이 있든 없든 항상 둘이라
+    카드 높이가 종목마다 달라지지 않는다.
+    """
+    def one(lab, v, cls_name):
+        if v is None or (isinstance(v, float) and math.isnan(v)):
+            return (f'<div class="supp-cr"><span class="supp-dlab">{lab}</span>'
+                    f'<span class="{cls_name} needchk">확인 필요</span></div>')
+        cls = "up" if v > 0 else ("down" if v < 0 else "flat")
+        return (f'<div class="supp-cr"><span class="supp-dlab">{lab}</span>'
+                f'<span class="{cls_name} {cls}">{v:+.2f}%</span></div>')
+    return ('<div class="supp-chg">'
+            + one("일간", day, "supp-dchg")
+            + one("주간", week, "supp-wchg")
+            + "</div>")
+
+
 def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None, rank=None):
     # 열 순서는 "기간이 이어지게" 놓는다: 일간→주간→YTD(연간)를 붙이고,
     # 그 다음 고점대비 두 개, 마지막에 연속·RSI·이평선. (2026-08-08 영재님 요청)
@@ -356,6 +391,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     tag_html = f'<span class="supp-tag">{tag}</span>' if tag else ""
     # 시총 순위 뱃지 — 목록 자체가 시총순이라 자리 번호가 곧 순위다(2026-08-15 요청)
     rank_html = f'<span class="supp-rank">{rank}</span>' if rank else ""
+    # 이름이 길면 글자를 조금 줄여서 잘리지 않게 한다 (2026-08-16).
+    # "어플라이드머티리얼즈"·"한화에어로스페이스" 같은 이름은 기본 12.8px로는
+    # 좁은 카드에서 잘린다. 칸을 넓히면 한 줄에 들어가는 카드 수가 줄어서
+    # 대신 이름 쪽 글자만 단계적으로 줄인다.
+    ncls = name_class(name)
     # 펼침 카드에서 차트는 뺐다(2026-08-15 요청) — 위젯 로딩이 느리고 좁은 카드에서
     # 잘 안 보여서, 차트는 개요 탭 지수 카드에서만 쓴다.
     chart_td = ""
@@ -363,26 +403,21 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
         day, dd52, ddath, week, ytd, sd, rsi, mas = compute(close, rate, aths.get(sym))
-        # 접힌 카드에서도 오늘 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청)
-        if day is None or (isinstance(day, float) and math.isnan(day)):
-            dchg = ('<span class="supp-dlab">일간</span>'
-                    '<span class="supp-dchg needchk">확인 필요</span>')
-        else:
-            dcls = "up" if day > 0 else ("down" if day < 0 else "flat")
-            # 숫자만 있으면 무슨 기간인지 헷갈려서 "일간" 라벨을 붙인다 (2026-08-16 요청)
-            dchg = (f'<span class="supp-dlab">일간</span>'
-                    f'<span class="supp-dchg {dcls}">{day:+.2f}%</span>')
-        # 제목 띠는 두 줄이다 — 위: 이름·티커, 아래: 가격·일간등락.
+        # 접힌 카드에서도 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청).
+        # 일간 아래 주간까지 두 줄로 쌓는다 (2026-08-16 요청).
+        chg_html = chg_stack(day, week)
+        # 제목 띠는 두 줄이다 — 왼쪽 위: 이름·티커, 왼쪽 아래: 가격.
+        # 오른쪽에는 일간/주간 등락이 두 줄로 붙는다.
         # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
         name_td = (f'<td>{rank_html}{logo_html}<div class="supp-main">'
-                   f'<div class="supp-l1"><span class="supp-name">{name}</span>'
+                   f'<div class="supp-l1"><span class="{ncls}">{name}</span>'
                    f'<span class="supp-ticker">{label}</span></div>'
-                   f'<div class="supp-l2">{tag_html}{px}{dchg}</div></div></td>')
+                   f'<div class="supp-l2">{tag_html}{px}</div></div>{chg_html}</td>')
         # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
         sign = ("d-up" if day and day > 0 else
                 "d-down" if day and day < 0 else "d-flat")
-        # 일간은 제목 띠(supp-dchg)에 있으므로 표에서는 뺀다 (2026-08-15 요청)
-        return (f'          <tr class="{sign}">' + name_td + pct_cell(week)
+        # 일간·주간은 제목 띠에 있으므로 표에서는 뺀다 (2026-08-15·16 요청)
+        return (f'          <tr class="{sign}">' + name_td
                 + pct_cell(ytd) + pct_cell(dd52) + pct_cell(ddath)
                 + streak_cell(sd) + f"<td>{rsi:.1f}</td>" + ma_cell(mas)
                 + desc_td + chart_td + "</tr>")
@@ -390,11 +425,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
         name_td = (f'<td>{rank_html}{logo_html}<div class="supp-main">'
-                   f'<div class="supp-l1"><span class="supp-name">{name}</span>'
+                   f'<div class="supp-l1"><span class="{ncls}">{name}</span>'
                    f'<span class="supp-ticker">{label}</span></div>'
                    f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
-                   f'</div></td>')
-        return f"          <tr>{name_td}{nc * 7}{desc_td}{chart_td}</tr>"
+                   f'</div>{chg_stack(None, None)}</td>')
+        return f"          <tr>{name_td}{nc * 6}{desc_td}{chart_td}</tr>"
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
@@ -1557,7 +1592,19 @@ MCAP_LOGO = {
     "NVDA": "nvidia.com", "GOOGL": "abc.xyz", "AAPL": "apple.com",
     "MSFT": "microsoft.com", "AMZN": "amazon.com", "AVGO": "broadcom.com",
     "META": "meta.com", "TSLA": "tesla.com", "BRK.B": "berkshirehathaway.com",
-    "MU": "micron.com",
+    "MU": "micron.com", "SPCX": "spacex.com",
+}
+# 상장 시점. 이 날짜보다 앞선 열의 빈 칸은 "10위 밖"이 아니라 "상장 전"이다 —
+# 스페이스X처럼 최근에 상장한 기업을 옛날 칸까지 "밖이었다"고 적으면 거짓이 된다.
+#   스페이스X: 2026-06-12 나스닥 상장(SPCX), 공모가 $135. 출처 CNBC·Nasdaq·stockanalysis.
+MCAP_LISTED = {
+    "SPCX": datetime.date(2026, 6, 12),
+}
+# 상장은 했는데 그 시점 순위를 확인하지 못한 구간. 지어내지 않고 "확인 필요"로 둔다.
+#   스페이스X는 상장이 '26년 6월 12일이라 '26상 열(6/30 기준)에는 이미 올라와 있었지만,
+#   그 날짜의 미국 시총 TOP10 확정 자료를 못 찾아서 순위를 비워 둔다.
+MCAP_NODATA_BEFORE = {
+    "SPCX": datetime.date(2026, 7, 1),
 }
 # 기업 고유색은 index.html의 CSS 변수(--mcc-티커)로 정의돼 있다. 거기 없는
 # 기업이 새로 TOP10에 들어오면 아래 예비색을 순서대로 준다(밝음/어둠 겸용 중간톤).
@@ -1658,7 +1705,7 @@ def mcap_live_rows(mcaps):
         if sym not in us30:        # 한국 종목 시가총액도 같이 받아오므로 걸러낸다
             continue
         name, label = us30[sym]
-        if label in MCAP_FOREIGN or label == "SPCX":
+        if label in MCAP_FOREIGN:
             continue
         ranked.append((name, label, mcap_fmt(cap)))
         if len(ranked) == 10:
@@ -1748,6 +1795,12 @@ def build_mcap(mcaps=None):
                 est = " (추정)" if i in approx else ""
                 cells.append(f'<div class="mg-c {pre}{r}" title="{esc(ko)} · {periods[i][0]} · '
                              f'{r}위 · {esc(cap)}{est}">{r}</div>')
+            elif tk in MCAP_LISTED and pdates[i] < MCAP_LISTED[tk]:
+                cells.append('<div class="mg-c mg-empty" title="아직 상장 전 '
+                             f'({MCAP_LISTED[tk].isoformat()} 상장)">–</div>')
+            elif tk in MCAP_NODATA_BEFORE and pdates[i] < MCAP_NODATA_BEFORE[tk]:
+                cells.append('<div class="mg-c mg-empty mg-unk" title="상장 직후라 이 시점 '
+                             '순위를 확인하지 못했습니다 (지어내지 않고 비워 둠)">?</div>')
             else:
                 cells.append('<div class="mg-c mg-empty" title="10위 밖">·</div>')
         logo = (f'<img class="supp-logo" src="https://logo.clearbit.com/{MCAP_LOGO[tk]}" '
@@ -1990,18 +2043,40 @@ def build_earn_list(rows):
 #     표시한다(별표 처리, 확정 아님).
 # 새해로 넘어가면(특히 FOMC 1월 회의 전) 다음 해 일정을 새로 찾아 추가해야 한다 —
 # 안 그러면 그 달은 조용히 칩이 안 뜨는 것뿐이라(에러가 안 남) 놓치기 쉽다.
+#
+# 물가지표(CPI·PPI·PCE)는 2026-08-16에 아래 공식 일정표에서 직접 확인해 옮겨 적었다.
+#   - CPI: https://www.bls.gov/schedule/news_release/cpi.htm
+#   - PPI: https://www.bls.gov/schedule/news_release/ppi.htm
+#   - PCE(개인소득·지출): https://www.bea.gov/news/schedule
+#   교차검증: https://www.bls.gov/schedule/2026/home.htm (요일까지 일치 확인)
+#   셋 다 현지 오전 8시 30분(ET) 발표라 한국시간으로도 같은 날 밤(21:30~22:30 KST)이다.
+#   그래서 FOMC·BOJ와 달리 날짜를 하루 밀지 않는다.
+#   2026년 12월분(=2027년 1월 발표)은 아직 공식 일정이 안 나와서 넣지 않았다.
 MACRO_EVENTS = [
     # (날짜, 칩에 쓸 짧은 라벨, 확정 여부)
+    (datetime.date(2026, 8, 26), "美 PCE", True),
     (datetime.date(2026, 8, 27), "한은 금통위", True),
+    (datetime.date(2026, 9, 10), "美 PPI", True),
+    (datetime.date(2026, 9, 11), "美 CPI", True),
     (datetime.date(2026, 9, 17), "FOMC", True),
     (datetime.date(2026, 9, 18), "BOJ", True),
+    (datetime.date(2026, 9, 30), "美 PCE", True),
     (datetime.date(2026, 10, 2), "테슬라 인도량*", False),
+    (datetime.date(2026, 10, 14), "美 CPI", True),
+    (datetime.date(2026, 10, 15), "美 PPI", True),
     (datetime.date(2026, 10, 22), "한은 금통위", True),
     (datetime.date(2026, 10, 29), "FOMC", True),
+    (datetime.date(2026, 10, 29), "美 PCE", True),
     (datetime.date(2026, 10, 30), "BOJ", True),
+    (datetime.date(2026, 11, 10), "美 CPI", True),
+    (datetime.date(2026, 11, 13), "美 PPI", True),
+    (datetime.date(2026, 11, 25), "美 PCE", True),
     (datetime.date(2026, 11, 26), "한은 금통위", True),
     (datetime.date(2026, 12, 10), "FOMC", True),
+    (datetime.date(2026, 12, 10), "美 CPI", True),
+    (datetime.date(2026, 12, 15), "美 PPI", True),
     (datetime.date(2026, 12, 18), "BOJ", True),
+    (datetime.date(2026, 12, 23), "美 PCE", True),
 ]
 
 
@@ -2016,7 +2091,9 @@ def build_earn_cal(rows):
     for d, _name, short, confirmed in rows:
         by_day.setdefault(d, []).append((short + ("" if confirmed else "*"), "earn"))
     for d, short, confirmed in MACRO_EVENTS:
-        by_day.setdefault(d, []).append((short if confirmed else short, "macro"))
+        # 물가지표(CPI·PPI·PCE)는 회의 일정과 성격이 달라 칩 색을 따로 준다
+        kind = "price" if short.startswith("美 ") else "macro"
+        by_day.setdefault(d, []).append((short, kind))
 
     today = datetime.datetime.now(KST).date()
     months, y, m = [], today.year, today.month
@@ -2031,7 +2108,7 @@ def build_earn_cal(rows):
         for day in range(1, ndays + 1):
             d = datetime.date(y, m, day)
             chips = "".join(
-                f'<div class="cal-chip{" macro" if kind == "macro" else ""}">{c}</div>'
+                f'<div class="cal-chip{"" if kind == "earn" else " " + kind}">{c}</div>'
                 for c, kind in by_day.get(d, [])
             )
             cls = "cal-cell today" if d == today else "cal-cell"
@@ -2230,8 +2307,6 @@ def main(html_path):
     mcaps = {}
     for sec in ("us30", "kr10"):
         for _, label, _, sym, _ in SECTIONS[sec]:
-            if label == "SPCX":          # 비상장이라 시가총액이 없다
-                continue
             try:
                 mc = yf.Ticker(sym).fast_info["market_cap"]
                 if mc and mc > 0:
@@ -2239,7 +2314,7 @@ def main(html_path):
             except Exception:
                 pass
     print(f"  시가총액 확보 {len(mcaps)}/"
-          f"{len(SECTIONS['us30']) + len(SECTIONS['kr10']) - 1}")
+          f"{len(SECTIONS['us30']) + len(SECTIONS['kr10'])}")
 
     ok_count = 0
     for section, rows in SECTIONS.items():
