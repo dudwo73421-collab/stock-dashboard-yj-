@@ -365,12 +365,19 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         day, dd52, ddath, week, ytd, sd, rsi, mas = compute(close, rate, aths.get(sym))
         # 접힌 카드에서도 오늘 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청)
         if day is None or (isinstance(day, float) and math.isnan(day)):
-            dchg = '<span class="supp-dchg needchk">확인 필요</span>'
+            dchg = ('<span class="supp-dlab">일간</span>'
+                    '<span class="supp-dchg needchk">확인 필요</span>')
         else:
             dcls = "up" if day > 0 else ("down" if day < 0 else "flat")
-            dchg = f'<span class="supp-dchg {dcls}">{day:+.2f}%</span>'
-        name_td = (f'<td>{rank_html}{logo_html}<span class="supp-name">{name}</span>'
-                   f'<span class="supp-ticker">{label}</span>{tag_html}{px}{dchg}</td>')
+            # 숫자만 있으면 무슨 기간인지 헷갈려서 "일간" 라벨을 붙인다 (2026-08-16 요청)
+            dchg = (f'<span class="supp-dlab">일간</span>'
+                    f'<span class="supp-dchg {dcls}">{day:+.2f}%</span>')
+        # 제목 띠는 두 줄이다 — 위: 이름·티커, 아래: 가격·일간등락.
+        # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
+        name_td = (f'<td>{rank_html}{logo_html}<div class="supp-main">'
+                   f'<div class="supp-l1"><span class="supp-name">{name}</span>'
+                   f'<span class="supp-ticker">{label}</span></div>'
+                   f'<div class="supp-l2">{tag_html}{px}{dchg}</div></div></td>')
         # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
         sign = ("d-up" if day and day > 0 else
                 "d-down" if day and day < 0 else "d-flat")
@@ -382,8 +389,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     except Exception as e:
         print(f"  [warn] {sym}: {e}", file=sys.stderr)
         nc = '<td class="needchk">확인 필요</td>'
-        name_td = (f'<td>{rank_html}{logo_html}<span class="supp-name">{name}</span>'
-                   f'<span class="supp-ticker">{label}</span></td>')
+        name_td = (f'<td>{rank_html}{logo_html}<div class="supp-main">'
+                   f'<div class="supp-l1"><span class="supp-name">{name}</span>'
+                   f'<span class="supp-ticker">{label}</span></div>'
+                   f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
+                   f'</div></td>')
         return f"          <tr>{name_td}{nc * 7}{desc_td}{chart_td}</tr>"
 
 
