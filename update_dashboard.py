@@ -199,6 +199,10 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
     high52 = float(close.tail(252).max())
     drawdown = (last / high52 - 1) * 100
 
+    # 52주 저점 대비 상승률 — 고점대비만 있으면 "바닥에서 얼마나 올라왔나"가 안 보인다
+    low52 = float(close.tail(252).min())
+    up52 = (last / low52 - 1) * 100 if low52 > 0 else None
+
     ath_dd = None
     if ath is not None and ath > 0:
         # 전체 기간 최고값은 최근 1년 최고값보다 낮을 수 없다. 낮게 나오면
@@ -239,7 +243,45 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
         ma200 = float(close.tail(200).mean())
         score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
         rating = RATING_LABEL[score]
-    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas
+    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas, up52
+
+
+def na_cell(why):
+    """해당 없음 — 못 받아온 것("확인 필요")과 구분한다. ETF의 PER 같은 경우."""
+    return f'<td class="na" title="{why}">–</td>'
+
+
+def per_cell(v):
+    """PER. 적자면 야후가 값을 아예 안 주거나 음수를 주는데, 음수 PER은 배수로
+    비교할 수 있는 값이 아니라 숫자로 적지 않고 "적자"로 표시한다."""
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return '<td class="needchk">확인 필요</td>'
+    if v <= 0:
+        return '<td class="na" title="순이익이 적자라 PER을 배수로 비교할 수 없습니다">적자</td>'
+    if v > 400:
+        return (f'<td class="na" title="{v:,.0f}배 — 이익이 거의 0에 가까워 '
+                '배수가 의미를 잃는 구간입니다">400배 초과</td>')
+    return f"<td>{v:,.1f}배</td>"
+
+
+def turnover_cell(v, cur):
+    """거래대금. 원/달러 단위를 섞지 않도록 통화 기호를 같이 적는다."""
+    if v is None or (isinstance(v, float) and math.isnan(v)) or v <= 0:
+        return '<td class="needchk">확인 필요</td>'
+    if cur == "KRW":
+        return (f"<td>{v / 1e12:.2f}조원</td>" if v >= 1e12
+                else f"<td>{v / 1e8:,.0f}억원</td>")
+    return (f"<td>${v / 1e9:.2f}B</td>" if v >= 1e9 else f"<td>${v / 1e6:,.0f}M</td>")
+
+
+def volmul_cell(v):
+    """평소(최근 20거래일 중앙값) 대비 거래량 배수. 2배가 넘으면 뭔가 있었다는 뜻이라
+    색으로 표시하고, 그 아래는 담담하게 숫자만 둔다."""
+    if v is None or (isinstance(v, float) and math.isnan(v)) or v <= 0:
+        return '<td class="needchk">확인 필요</td>'
+    cls = "vol-hot" if v >= 2 else ("vol-warm" if v >= 1.5 else "")
+    tip = "최근 20거래일 거래량 중앙값 대비"
+    return f'<td class="{cls}" title="{tip}">{v:.2f}배</td>'
 
 
 def pct_cell(v):
@@ -360,28 +402,40 @@ def name_class(name):
     return "supp-name"
 
 
-def chg_stack(day, week):
-    """제목 띠 오른쪽에 붙는 일간/주간 등락 두 줄.
+def chg_stack(day, week, ytd):
+    """제목 띠 오른쪽에 붙는 일간/주간/올해 등락 세 줄.
 
-    값이 없으면 지어내지 않고 "확인 필요"로 둔다. 줄 수는 값이 있든 없든 항상 둘이라
+    값이 없으면 지어내지 않고 "확인 필요"로 둔다. 줄 수는 값이 있든 없든 항상 셋이라
     카드 높이가 종목마다 달라지지 않는다.
+    맨 아래 라벨을 "년간"이 아니라 "26년"으로 적은 이유: 이 값은 지난 1년이 아니라
+    올해 첫 거래일 종가 대비(YTD)라, "년간"이라고 쓰면 최근 12개월로 오해하기 쉽다.
     """
-    def one(lab, v, cls_name):
+    lab_tip = {
+        "일간": "직전 거래일 종가 대비",
+        "주간": "5거래일 전 종가 대비",
+    }
+    def one(lab, v, cls_name, tip=None):
+        tip = tip or lab_tip.get(lab, "")
+        t = f' title="{tip}"' if tip else ""
         if v is None or (isinstance(v, float) and math.isnan(v)):
-            return (f'<div class="supp-cr"><span class="supp-dlab">{lab}</span>'
+            return (f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
                     f'<span class="{cls_name} needchk">확인 필요</span></div>')
         cls = "up" if v > 0 else ("down" if v < 0 else "flat")
-        return (f'<div class="supp-cr"><span class="supp-dlab">{lab}</span>'
+        return (f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
                 f'<span class="{cls_name} {cls}">{v:+.2f}%</span></div>')
+    yr = datetime.datetime.now(KST).year
     return ('<div class="supp-chg">'
             + one("일간", day, "supp-dchg")
             + one("주간", week, "supp-wchg")
+            + one(f"{yr % 100}년", ytd, "supp-ychg",
+                  f"{yr}년 첫 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다")
             + "</div>")
 
 
-def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None, rank=None):
-    # 열 순서는 "기간이 이어지게" 놓는다: 일간→주간→YTD(연간)를 붙이고,
-    # 그 다음 고점대비 두 개, 마지막에 연속·RSI·이평선. (2026-08-08 영재님 요청)
+def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None,
+             rank=None, vols=None, pers=None, is_etf=False):
+    # 기간 지표(일간·주간·올해)는 전부 제목 띠 오른쪽에 세로로 쌓았고, 표에는
+    # 펼쳐야 보이는 것들만 남겼다: 고점대비 두 개, 연속, RSI, 이평선.
     # desc가 있으면(ETF) 카드 맨 아래에 설명 한 줄이 붙는다.
     # 제목 띠 오른쪽에는 기준일 종가를 그대로 적는다(2026-08-09 영재님 요청).
     aths = aths or {}
@@ -399,13 +453,36 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     # 펼침 카드에서 차트는 뺐다(2026-08-15 요청) — 위젯 로딩이 느리고 좁은 카드에서
     # 잘 안 보여서, 차트는 개요 탭 지수 카드에서만 쓴다.
     chart_td = ""
+    # 거래대금·거래량 배수 — 등락률만으로는 "오늘 왜 움직였나"를 못 본다.
+    # 평소의 2배 넘게 거래되면 뉴스가 있었다는 뜻이라 색으로 표시한다.
+    turnover = volmul = None
+    if vols is not None:
+        try:
+            v = vols[sym].dropna()
+            c = closes[sym].dropna()
+            if len(v) >= 21 and len(c):
+                last_v = float(v.iloc[-1])
+                med = float(v.tail(21).iloc[:-1].median())
+                turnover = last_v * float(c.iloc[-1])
+                volmul = last_v / med if med > 0 else None
+        except Exception as e:
+            print(f"  [warn] {sym} 거래량: {e}", file=sys.stderr)
+    cur = "KRW" if sym.endswith((".KS", ".KQ")) else "USD"
+    if is_etf:
+        # ETF는 PER이 성립하지 않는다(개별 기업 이익이 아니라 바구니라서).
+        # 못 받아온 것과 구분해서 "해당 없음"으로 둔다.
+        per_html = na_cell("ETF에는 기업 PER 개념이 없습니다") * 2
+    else:
+        p = (pers or {}).get(sym) or {}
+        per_html = per_cell(p.get("trailing")) + per_cell(p.get("forward"))
+
     try:
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
-        day, dd52, ddath, week, ytd, sd, rsi, mas = compute(close, rate, aths.get(sym))
+        day, dd52, ddath, week, ytd, sd, rsi, mas, up52 = compute(close, rate, aths.get(sym))
         # 접힌 카드에서도 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청).
         # 일간 아래 주간까지 두 줄로 쌓는다 (2026-08-16 요청).
-        chg_html = chg_stack(day, week)
+        chg_html = chg_stack(day, week, ytd)
         # 제목 띠는 두 줄이다 — 왼쪽 위: 이름·티커, 왼쪽 아래: 가격.
         # 오른쪽에는 일간/주간 등락이 두 줄로 붙는다.
         # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
@@ -416,9 +493,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
         sign = ("d-up" if day and day > 0 else
                 "d-down" if day and day < 0 else "d-flat")
-        # 일간·주간은 제목 띠에 있으므로 표에서는 뺀다 (2026-08-15·16 요청)
+        # 일간·주간·YTD는 제목 띠에 있으므로 표에서는 뺀다 (2026-08-15·16 요청)
         return (f'          <tr class="{sign}">' + name_td
-                + pct_cell(ytd) + pct_cell(dd52) + pct_cell(ddath)
+                + pct_cell(up52) + pct_cell(dd52) + pct_cell(ddath)
+                + per_html
+                + turnover_cell(turnover, cur) + volmul_cell(volmul)
                 + streak_cell(sd) + f"<td>{rsi:.1f}</td>" + ma_cell(mas)
                 + desc_td + chart_td + "</tr>")
     except Exception as e:
@@ -428,8 +507,10 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                    f'<div class="supp-l1"><span class="{ncls}">{name}</span>'
                    f'<span class="supp-ticker">{label}</span></div>'
                    f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
-                   f'</div>{chg_stack(None, None)}</td>')
-        return f"          <tr>{name_td}{nc * 6}{desc_td}{chart_td}</tr>"
+                   f'</div>{chg_stack(None, None, None)}</td>')
+        return (f"          <tr>{name_td}{nc * 3}{per_html}"
+                + turnover_cell(turnover, cur) + volmul_cell(volmul)
+                + f"{nc * 3}{desc_td}{chart_td}</tr>")
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
@@ -1348,7 +1429,7 @@ def idx_metrics(s, sym, ath):
                            f'<span class="im-v">{float(s.tail(252).min()):.2f}~'
                            f'{float(s.tail(252).max()):.2f}%p</span>'))
         return '<div class="idx-metrics">' + "".join(rows) + "</div>"
-    day, dd52, ddath, week, ytd, sd, rsi, mas = compute(s, False, ath)
+    day, dd52, ddath, week, ytd, sd, rsi, mas, up52 = compute(s, False, ath)
     streak, direction = sd
     st = ('<span class="im-v needchk">보합</span>' if streak == 0 else
           f'<span class="im-v up">{streak}일 상승</span>' if direction > 0 else
@@ -1356,7 +1437,8 @@ def idx_metrics(s, sym, ath):
     ma_html = ma_cell(mas).replace('<td class="ma-td">', '<span class="im-v">') \
                           .replace("</td>", "</span>")
     rows = [im_row("일간", im_pct(day)), im_row("주간", im_pct(week)),
-            im_row("26년 YTD", im_pct(ytd)), im_row("52주 고점대비", im_pct(dd52)),
+            im_row("26년 YTD", im_pct(ytd)), im_row("52주 저점대비", im_pct(up52)),
+            im_row("52주 고점대비", im_pct(dd52)),
             im_row("사상최고 대비", im_pct(ddath)), im_row("연속", st),
             im_row("RSI", f'<span class="im-v">{rsi:.1f}</span>'),
             im_row("이평선", ma_html)]
@@ -2132,6 +2214,128 @@ def build_earn_cal(rows):
     return "\n".join(months)
 
 
+# ------------------------------------------------------------- 섹터별 등락 히트맵
+#
+# 섹터는 야후의 sector 값을 쓰지 않고 손으로 적었다. 야후는 같은 회사를 조회
+# 시점마다 다르게 분류할 때가 있고("Technology" ↔ "Consumer Cyclical"), 한국
+# 종목은 아예 비어 오는 경우가 많아서, 자동으로 두면 어느 날 조용히 칸이 바뀐다.
+# 종목을 새로 넣으면 여기에도 한 줄 추가해야 한다 — 빠뜨리면 "기타"로 모인다.
+SECTOR_OF = {
+    # 반도체 (설계·제조·장비·메모리를 한 칸에 둔다 — 사이클을 같이 타서)
+    "NVDA": "반도체", "TSM": "반도체", "AVGO": "반도체", "AMD": "반도체",
+    "ASML": "반도체", "MU": "반도체", "INTC": "반도체", "AMAT": "반도체",
+    "LRCX": "반도체", "ARM": "반도체", "KLAC": "반도체", "SNDK": "반도체",
+    "TXN": "반도체", "005930.KS": "반도체", "000660.KS": "반도체",
+    "009150.KS": "반도체",
+    # 인터넷·소프트웨어 (스트리밍인 넷플릭스도 여기에 둔다 — 혼자 "미디어" 칸을
+    # 만들면 그 칸 평균이 곧 넷플릭스 한 종목이라 업종 지표가 되지 못한다)
+    "MSFT": "인터넷·소프트웨어", "GOOGL": "인터넷·소프트웨어",
+    "META": "인터넷·소프트웨어", "ORCL": "인터넷·소프트웨어",
+    "PLTR": "인터넷·소프트웨어", "CRWD": "인터넷·소프트웨어",
+    "IBM": "인터넷·소프트웨어", "NFLX": "인터넷·소프트웨어",
+    "035420.KS": "인터넷·소프트웨어", "402340.KS": "인터넷·소프트웨어",
+    # 하드웨어·네트워크
+    "AAPL": "하드웨어·네트워크", "CSCO": "하드웨어·네트워크",
+    "DELL": "하드웨어·네트워크", "ANET": "하드웨어·네트워크",
+    # 금융
+    "BRK-B": "금융", "JPM": "금융", "V": "금융", "MA": "금융", "BAC": "금융",
+    "HSBC": "금융", "MS": "금융", "GS": "금융", "RY": "금융", "WFC": "금융",
+    "C": "금융", "AXP": "금융", "105560.KS": "금융", "055550.KS": "금융",
+    "086790.KS": "금융", "032830.KS": "금융", "034730.KS": "금융",
+    # 헬스케어·제약
+    "LLY": "헬스케어·제약", "JNJ": "헬스케어·제약", "ABBV": "헬스케어·제약",
+    "UNH": "헬스케어·제약", "MRK": "헬스케어·제약", "NVS": "헬스케어·제약",
+    "AMGN": "헬스케어·제약", "TMO": "헬스케어·제약",
+    "207940.KS": "헬스케어·제약", "068270.KS": "헬스케어·제약",
+    # 소비재·유통
+    "AMZN": "소비재·유통", "WMT": "소비재·유통", "COST": "소비재·유통",
+    "KO": "소비재·유통", "PG": "소비재·유통", "HD": "소비재·유통",
+    "PM": "소비재·유통", "028260.KS": "소비재·유통",
+    # 자동차·2차전지
+    "TSLA": "자동차·2차전지", "005380.KS": "자동차·2차전지",
+    "000270.KS": "자동차·2차전지", "012330.KS": "자동차·2차전지",
+    "373220.KS": "자동차·2차전지",
+    # 에너지·전력
+    "XOM": "에너지·전력", "CVX": "에너지·전력", "GEV": "에너지·전력",
+    "034020.KS": "에너지·전력",
+    # 항공우주·방산·산업재
+    "SPCX": "항공우주·방산", "GE": "항공우주·방산", "RTX": "항공우주·방산",
+    "012450.KS": "항공우주·방산", "CAT": "항공우주·방산",
+    "329180.KS": "항공우주·방산",
+}
+# 화면에 놓을 순서 (익숙한 순서를 고정해 둬야 매일 자리가 안 바뀐다)
+SECTOR_ORDER = ["반도체", "인터넷·소프트웨어", "하드웨어·네트워크",
+                "금융", "헬스케어·제약", "소비재·유통", "자동차·2차전지",
+                "에너지·전력", "항공우주·방산"]
+
+
+def sector_step(v):
+    """등락률 → 색 단계. 빨강(상승) 4단계 · 중립 · 파랑(하락) 4단계.
+    발산형이라 가운데는 색이 아니라 회색이고, 양쪽 팔의 구간 폭이 같다.
+    색만으로는 못 읽으니 칸 안에 숫자를 항상 같이 적는다."""
+    if v is None:
+        return "s-na"
+    a = abs(v)
+    lv = 1 if a < 1 else 2 if a < 2 else 3 if a < 3 else 4
+    if a < 0.3:
+        return "s-0"
+    return f"s-{'u' if v > 0 else 'd'}{lv}"
+
+
+def build_sector(closes):
+    """개요 탭의 섹터별 등락 히트맵.
+
+    같은 섹터 종목들의 전일 대비 등락률을 단순평균(동일가중)한다. 시가총액
+    가중이 아닌 이유: 시총가중이면 반도체 칸이 사실상 엔비디아 하나가 되어
+    "업종이 움직였나"를 못 본다. 대신 칸을 누르면 종목별 값이 다 나온다.
+    한 종목도 못 받아온 섹터는 지어내지 않고 "확인 필요"로 둔다.
+    """
+    per_sector = {}
+    for sec in ("us30", "kr10"):
+        for name, _label, _dom, sym, _r in SECTIONS[sec]:
+            g = SECTOR_OF.get(sym)
+            if not g:
+                continue
+            try:
+                c = closes[sym].dropna()
+                if len(c) < 2:
+                    raise ValueError("데이터 부족")
+                d = (float(c.iloc[-1]) / float(c.iloc[-2]) - 1) * 100
+            except Exception:
+                d = None
+            per_sector.setdefault(g, []).append((name, d))
+
+    missing = [s for s, _ in SECTOR_OF.items() if s not in closes]
+    if missing:
+        print(f"  [warn] 섹터 히트맵: 시세를 못 받은 종목 {len(missing)}개", file=sys.stderr)
+
+    tiles = []
+    for g in SECTOR_ORDER:
+        members = per_sector.get(g, [])
+        got = [d for _n, d in members if d is not None]
+        avg = sum(got) / len(got) if got else None
+        step = sector_step(avg)
+        head = (f'{avg:+.2f}%' if avg is not None else "확인 필요")
+        detail = "".join(
+            f'<div class="sec-m"><span class="sec-mn">{n}</span>'
+            + (f'<span class="sec-mv {"up" if d > 0 else "down" if d < 0 else "flat"}">'
+               f'{d:+.2f}%</span>' if d is not None
+               else '<span class="sec-mv needchk">확인 필요</span>')
+            + "</div>"
+            for n, d in sorted(members, key=lambda x: (x[1] is None, -(x[1] or 0))))
+        cnt = f"{len(got)}/{len(members)}" if len(got) != len(members) else str(len(members))
+        tiles.append(
+            '        <details class="sec-tile">\n'
+            f'          <summary class="sec-sum {step}">\n'
+            f'            <span class="sec-name">{g}</span>\n'
+            f'            <span class="sec-val">{head}</span>\n'
+            f'            <span class="sec-cnt">{cnt}종목</span>\n'
+            '          </summary>\n'
+            f'          <div class="sec-list">{detail}</div>\n'
+            '        </details>')
+    return ('      <div class="sec-grid">\n' + "\n".join(tiles) + "\n      </div>")
+
+
 def load_ath_cache():
     """저장해 둔 사상최고 값을 읽는다. 없거나 깨져 있으면 빈 값으로 시작한다."""
     try:
@@ -2223,7 +2427,7 @@ def main(html_path):
     data = yf.download(all_syms, period="15mo", interval="1d",
                        auto_adjust=True, progress=False, group_by="ticker", threads=True)
 
-    closes = {}
+    closes, vols = {}, {}
     for sym in all_syms:
         try:
             s = data[sym]["Close"] if isinstance(data.columns, pd.MultiIndex) else data["Close"]
@@ -2232,6 +2436,13 @@ def main(html_path):
             closes[sym] = s
         except Exception as e:
             print(f"  [warn] no data for {sym}: {e}", file=sys.stderr)
+        try:
+            # 거래량은 없어도 표 전체가 죽으면 안 되므로 따로 감싼다
+            v = data[sym]["Volume"] if isinstance(data.columns, pd.MultiIndex) else data["Volume"]
+            if not v.dropna().empty:
+                vols[sym] = v
+        except Exception:
+            pass
 
     # 사상 최고가(전체 기간 최고 종가)는 위의 15개월치로는 알 수 없어서 따로 받는다.
     # 여기서 실패해도 표 전체가 죽으면 안 되므로, 실패하면 aths를 비워 두고
@@ -2303,8 +2514,8 @@ def main(html_path):
 
     # 시가총액: 카드의 순위 뱃지와 시총순위 탭에 함께 쓴다. 실패해도 죽지 않는다
     # — 순위 뱃지는 안 붙고, 시총순위 탭은 수기 예비값으로 그려진다.
-    print("fetching market caps...")
-    mcaps = {}
+    print("fetching market caps & PER...")
+    mcaps, pers = {}, {}
     for sec in ("us30", "kr10"):
         for _, label, _, sym, _ in SECTIONS[sec]:
             try:
@@ -2313,8 +2524,25 @@ def main(html_path):
                     mcaps[sym] = float(mc)
             except Exception:
                 pass
-    print(f"  시가총액 확보 {len(mcaps)}/"
-          f"{len(SECTIONS['us30']) + len(SECTIONS['kr10'])}")
+            # PER은 fast_info에 없어서 info를 따로 부른다. 느리고 가끔 비어서
+            # 오는데, 실패하면 그 칸만 "확인 필요"가 되고 나머지는 멀쩡하다.
+            try:
+                info = yf.Ticker(sym).info or {}
+                t, f_ = info.get("trailingPE"), info.get("forwardPE")
+                d = {}
+                if isinstance(t, (int, float)) and math.isfinite(t):
+                    d["trailing"] = float(t)
+                if isinstance(f_, (int, float)) and math.isfinite(f_):
+                    d["forward"] = float(f_)
+                if d:
+                    pers[sym] = d
+            except Exception:
+                pass
+    n_target = len(SECTIONS["us30"]) + len(SECTIONS["kr10"])
+    print(f"  시가총액 확보 {len(mcaps)}/{n_target} · PER 확보 {len(pers)}/{n_target}")
+    if len(pers) < n_target * 0.5:
+        print(f"  [warn] PER을 {len(pers)}개밖에 못 받았습니다 — 나머지 칸은 "
+              '"확인 필요"로 남습니다', file=sys.stderr)
 
     ok_count = 0
     for section, rows in SECTIONS.items():
@@ -2323,7 +2551,7 @@ def main(html_path):
             make_row(*row, closes, aths,
                      ETF_DESC.get(row[0]) if section == "etf" else None,
                      ETF_TAG.get(row[0]) if section == "etf" else None,
-                     rank)
+                     rank, vols, pers, section == "etf")
             for row, rank in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
@@ -2333,6 +2561,9 @@ def main(html_path):
             continue
         html = html[: i + len(start)] + "\n" + body + "\n          " + html[j:]
         ok_count += 1
+
+    print("building sector heatmap...")
+    html, sec_ok = splice(html, "SECTOR", build_sector(closes))
 
     print("building index cards...")
     html, idx_ok = splice(html, "IDX", build_idx(closes, aths))
@@ -2389,6 +2620,7 @@ def main(html_path):
           f"fin={'ok' if fin_ok else 'MARKER MISSING'}, "
           f"mcap={'ok' if mcap_ok else 'MARKER MISSING'}({len(mcaps)}종목), "
           f"sig={'ok' if sig_ok else 'MARKER MISSING'}, "
+          f"sector={'ok' if sec_ok else 'MARKER MISSING'}, "
           f"run={today}, 미국종가={us_d or '확인 필요'}, 한국종가={kr_d or '확인 필요'}")
 
 
