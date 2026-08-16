@@ -356,9 +356,9 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     tag_html = f'<span class="supp-tag">{tag}</span>' if tag else ""
     # 시총 순위 뱃지 — 목록 자체가 시총순이라 자리 번호가 곧 순위다(2026-08-15 요청)
     rank_html = f'<span class="supp-rank">{rank}</span>' if rank else ""
-    # 카드를 눌러 펼치면 나오는 차트 칸. 처음엔 비어 있고 펼칠 때 위젯을 붙인다.
-    tv = tv_symbol(label, sym)
-    chart_td = (f'<td class="supp-chart" data-tvsym="{tv}"></td>' if tv else "")
+    # 펼침 카드에서 차트는 뺐다(2026-08-15 요청) — 위젯 로딩이 느리고 좁은 카드에서
+    # 잘 안 보여서, 차트는 개요 탭 지수 카드에서만 쓴다.
+    chart_td = ""
     try:
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
