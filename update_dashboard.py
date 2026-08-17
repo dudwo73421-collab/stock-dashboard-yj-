@@ -1,4 +1,4 @@
-  # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 대시보드 보조 지표 자동 갱신 스크립트 (GitHub Actions에서 매일 실행됨)
 
@@ -259,7 +259,113 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
         ma200 = float(close.tail(200).mean())
         score = int(last > ma20) + int(last > ma50) + int(last > ma200) + int(ma50 > ma200)
         rating = RATING_LABEL[score]
-    return day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas, up52, this_year
+    return (day, drawdown, ath_dd, week, ytd, (streak, direction), rsi, mas,
+            up52, this_year, low52, high52)
+
+
+def krw_returns(close, fx):
+    """달러로 표시된 종목을 원화로 환산했을 때의 주간·연초대비 수익률.
+
+    한국에서 미국 주식을 사면 실제 손익은 "주가 변동 × 환율 변동"이다. 달러로
+    +17%여도 그 사이 원달러가 8% 내렸으면 원화로는 +8%다. 그래서 각 시점의
+    종가에 그 시점 환율을 곱한 원화 환산 시계열을 만들어서 다시 계산한다.
+
+    환율은 거의 24시간 돌아가서 주식과 거래일이 다르다. 주식 날짜에 맞춰 직전
+    환율로 채운 뒤(reindex+ffill) 곱한다. 겹치는 날이 모자라면 지어내지 않고
+    None을 돌려준다.
+    """
+    if fx is None:
+        return None, None
+    try:
+        c = close.dropna()
+        f = fx.dropna()
+        if len(c) < 6 or f.empty:
+            return None, None
+        # 주식 첫 거래일보다 환율이 늦게 시작하면 앞쪽이 비므로 그만큼 잘라낸다
+        aligned = f.reindex(c.index.union(f.index)).ffill().reindex(c.index)
+        k = (c * aligned).dropna()
+        if len(k) < 6:
+            return None, None
+        last = float(k.iloc[-1])
+        week = (last / float(k.iloc[-6]) - 1) * 100
+        prev = k[k.index.year < int(k.index[-1].year)]
+        ytd = (last / float(prev.iloc[-1]) - 1) * 100 if len(prev) else None
+        return week, ytd
+    except Exception:
+        return None, None
+
+
+def pick_valuation(info):
+    """야후 info에서 PER·선행PER·PBR·ROE·부채비율을 뽑는다.
+
+    단위 주의 — yfinance는 판(version)에 따라 같은 항목을 비율로도, %로도 준다.
+    지어내는 것보다 안 쓰는 게 낫다는 원칙에 따라, 상식 범위를 벗어나는 값은
+    받아들이지 않고 그 칸을 비워 "확인 필요"로 남긴다.
+      - returnOnEquity : 보통 비율(0.35 = 35%). 절댓값이 10을 넘으면 이미 %로 온
+        것으로 보고 그대로 쓴다. 그래도 ±1000%를 넘으면 버린다.
+      - debtToEquity   : 보통 %(154.2 = 154%). 5 미만이면 비율로 온 것으로 본다
+        (부채비율이 5% 미만인 상장사는 사실상 없다시피 하므로).
+    """
+    out = {}
+
+    def num(key):
+        v = info.get(key)
+        return float(v) if isinstance(v, (int, float)) and math.isfinite(v) else None
+
+    for k, src in (("trailing", "trailingPE"), ("forward", "forwardPE"),
+                   ("pbr", "priceToBook")):
+        v = num(src)
+        if v is not None:
+            out[k] = v
+
+    roe = num("returnOnEquity")
+    if roe is not None:
+        roe = roe if abs(roe) > 10 else roe * 100     # 비율로 왔으면 %로 바꾼다
+        if abs(roe) <= 1000:
+            out["roe"] = roe
+
+    de = num("debtToEquity")
+    if de is not None and de >= 0:
+        de = de * 100 if de < 5 else de               # 비율로 왔으면 %로 바꾼다
+        if de <= 100000:
+            out["de"] = de
+    return out
+
+
+def ratio_cell(v, unit="배", digits=1, hi=None, tip=None):
+    """PBR처럼 배수로 읽는 값. 음수는 배수로 비교할 수 없어 숫자로 적지 않는다."""
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return '<td class="needchk">확인 필요</td>'
+    if v <= 0:
+        return '<td class="na" title="자본이 마이너스라 배수로 비교할 수 없습니다">해당 없음</td>'
+    if hi and v > hi:
+        return f'<td class="na" title="{v:,.0f}{unit} — 배수가 의미를 잃는 구간입니다">{hi:,.0f}{unit} 초과</td>'
+    t = f' title="{tip}"' if tip else ""
+    return f"<td{t}>{v:,.{digits}f}{unit}</td>"
+
+
+def pct_val_cell(v, digits=1, tip=None, color=False):
+    """ROE·부채비율처럼 이미 %인 값."""
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return '<td class="needchk">확인 필요</td>'
+    cls = ""
+    if color:
+        cls = ' class="up"' if v > 0 else (' class="down"' if v < 0 else "")
+    t = f' title="{tip}"' if tip else ""
+    return f"<td{cls}{t}>{v:,.{digits}f}%</td>"
+
+
+def range_cell(low, high, last):
+    """52주 저점~고점 사이 현재 위치. 숫자 두 개를 막대 하나로 합쳐 보여준다.
+    0%면 52주 저점, 100%면 52주 신고가."""
+    if low is None or high is None or high <= low:
+        return '<td class="needchk">확인 필요</td>'
+    pos = (last - low) / (high - low) * 100
+    pos = max(0.0, min(100.0, pos))
+    return ('<td class="rng-td" title="52주 저점 대비 현재 위치 — '
+            f'0%가 52주 최저 종가, 100%가 52주 최고 종가입니다">'
+            f'<span class="rng"><i style="left:{pos:.1f}%"></i></span>'
+            f'<b class="rng-v">{pos:.0f}%</b></td>')
 
 
 def rsi_cell(v):
@@ -307,10 +413,14 @@ def turnover_cell(v, cur, intraday=False):
         txt = (f"{v / 1e12:.2f}조원" if v >= 1e12 else f"{v / 1e8:,.0f}억원")
     else:
         txt = (f"${v / 1e9:.2f}B" if v >= 1e9 else f"${v / 1e6:,.0f}M")
+    # 화면에는 "$145M"/"$1.50B"처럼 단위를 줄여 적지만, 그대로 두면 정렬·스크리너가
+    # 글자에서 숫자만 뽑아 145 > 1.50 으로 뒤집힌다. 원값을 data-v에 같이 심는다.
+    # (원화와 달러를 한 표에서 섞어 비교하지는 않는다 — 표는 시장별로 나뉘어 있다)
     if intraday:
-        return (f'<td class="na" title="장이 아직 안 끝나서 확정 거래대금이 아닙니다">'
+        return (f'<td class="na" data-v="{v:.0f}" '
+                f'title="장이 아직 안 끝나서 확정 거래대금이 아닙니다">'
                 f'{txt} <span class="live-tag">장중</span></td>')
-    return f"<td>{txt}</td>"
+    return f'<td data-v="{v:.0f}">{txt}</td>'
 
 
 def volmul_cell(v, intraday=False):
@@ -445,6 +555,22 @@ def name_class(name):
     return "supp-name"
 
 
+def chg_rows(items):
+    """(라벨, 값, 값클래스, 설명) 목록을 등락 3줄 블록으로 만든다.
+    보조지표 카드와 개요 지수 카드가 똑같이 쓴다."""
+    out = []
+    for lab, v, cls_name, tip, unit in items:
+        t = f' title="{tip}"' if tip else ""
+        if v is None or (isinstance(v, float) and math.isnan(v)):
+            out.append(f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
+                       f'<span class="{cls_name} needchk">확인 필요</span></div>')
+            continue
+        cls = "up" if v > 0 else ("down" if v < 0 else "flat")
+        out.append(f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
+                   f'<span class="{cls_name} {cls}">{v:+.2f}{unit}</span></div>')
+    return '<div class="supp-chg">' + "".join(out) + "</div>"
+
+
 def chg_stack(day, week, ytd, base_yr=None):
     """제목 띠 오른쪽에 붙는 일간/주간/올해 등락 세 줄.
 
@@ -453,30 +579,17 @@ def chg_stack(day, week, ytd, base_yr=None):
     맨 아래 라벨을 "년간"이 아니라 "26년"으로 적은 이유: 이 값은 지난 1년이 아니라
     올해 첫 거래일 종가 대비(YTD)라, "년간"이라고 쓰면 최근 12개월로 오해하기 쉽다.
     """
-    lab_tip = {
-        "일간": "직전 거래일 종가 대비",
-        "주간": "5거래일 전 종가 대비",
-    }
-    def one(lab, v, cls_name, tip=None):
-        tip = tip or lab_tip.get(lab, "")
-        t = f' title="{tip}"' if tip else ""
-        if v is None or (isinstance(v, float) and math.isnan(v)):
-            return (f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
-                    f'<span class="{cls_name} needchk">확인 필요</span></div>')
-        cls = "up" if v > 0 else ("down" if v < 0 else "flat")
-        return (f'<div class="supp-cr"><span class="supp-dlab"{t}>{lab}</span>'
-                f'<span class="{cls_name} {cls}">{v:+.2f}%</span></div>')
     yr = base_yr if base_yr else datetime.datetime.now(KST).year
-    return ('<div class="supp-chg">'
-            + one("일간", day, "supp-dchg")
-            + one("주간", week, "supp-wchg")
-            + one(f"{yr % 100}년", ytd, "supp-ychg",
-                  f"{yr - 1}년 마지막 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다")
-            + "</div>")
+    return chg_rows([
+        ("일간", day, "supp-dchg", "직전 거래일 종가 대비", "%"),
+        ("주간", week, "supp-wchg", "5거래일 전 종가 대비", "%"),
+        (f"{yr % 100}년", ytd, "supp-ychg",
+         f"{yr - 1}년 마지막 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다", "%"),
+    ])
 
 
 def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None,
-             rank=None, vols=None, pers=None, is_etf=False):
+             rank=None, vols=None, pers=None, is_etf=False, fx=None):
     # 기간 지표(일간·주간·올해)는 전부 제목 띠 오른쪽에 세로로 쌓았고, 표에는
     # 펼쳐야 보이는 것들만 남겼다: 고점대비 두 개, 연속, RSI, 이평선.
     # desc가 있으면(ETF) 카드 맨 아래에 설명 한 줄이 붙는다.
@@ -518,18 +631,31 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
             print(f"  [warn] {sym} 거래량: {e}", file=sys.stderr)
     cur = "KRW" if sym.endswith((".KS", ".KQ")) else "USD"
     if is_etf:
-        # ETF는 PER이 성립하지 않는다(개별 기업 이익이 아니라 바구니라서).
+        # ETF는 기업 재무제표가 없다(개별 기업이 아니라 바구니라서).
         # 못 받아온 것과 구분해서 "해당 없음"으로 둔다.
-        per_html = na_cell("ETF에는 기업 PER 개념이 없습니다") * 2
+        val_html = na_cell("ETF에는 기업 재무 지표가 없습니다") * 5
     else:
         p = (pers or {}).get(sym) or {}
-        per_html = per_cell(p.get("trailing")) + per_cell(p.get("forward"))
+        val_html = (per_cell(p.get("trailing")) + per_cell(p.get("forward"))
+                    + ratio_cell(p.get("pbr"), "배", 2, hi=100,
+                                 tip="주가순자산비율 — 1배면 장부상 순자산과 시가총액이 같다는 뜻")
+                    + pct_val_cell(p.get("roe"), 1, color=True,
+                                   tip="자기자본이익률 — 주주 돈으로 한 해 얼마를 벌었는지")
+                    + pct_val_cell(p.get("de"), 0,
+                                   tip="부채비율(부채 ÷ 자기자본) — 100%면 부채와 자기자본이 같다는 뜻"))
+
+    # 원화 환산 수익률. 한국 종목은 원래 원화라 계산할 것이 없다.
+    if sym.endswith((".KS", ".KQ")):
+        krw_html = na_cell("이미 원화로 거래되는 종목입니다") * 2
+    else:
+        kw, ky = krw_returns(closes[sym], fx) if sym in closes else (None, None)
+        krw_html = pct_cell(kw) + pct_cell(ky)
 
     try:
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
-        day, dd52, ddath, week, ytd, sd, rsi, mas, up52, base_yr = compute(
-            close, rate, aths.get(sym))
+        (day, dd52, ddath, week, ytd, sd, rsi, mas,
+         up52, base_yr, low52, high52) = compute(close, rate, aths.get(sym))
         # 접힌 카드에서도 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청).
         # 일간 아래 주간까지 두 줄로 쌓는다 (2026-08-16 요청).
         chg_html = chg_stack(day, week, ytd, base_yr)
@@ -545,8 +671,9 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                 "d-down" if day and day < 0 else "d-flat")
         # 일간·주간·YTD는 제목 띠에 있으므로 표에서는 뺀다 (2026-08-15·16 요청)
         return (f'          <tr class="{sign}">' + name_td
+                + range_cell(low52, high52, float(close.dropna().iloc[-1]))
                 + pct_cell(up52) + pct_cell(dd52) + pct_cell(ddath)
-                + per_html
+                + krw_html + val_html
                 + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
                 + streak_cell(sd) + rsi_cell(rsi) + ma_cell(mas)
                 + desc_td + chart_td + "</tr>")
@@ -558,7 +685,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                    f'<span class="supp-ticker">{label}</span></div>'
                    f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
                    f'</div>{chg_stack(None, None, None)}</td>')
-        return (f"          <tr>{name_td}{nc * 3}{per_html}"
+        return (f"          <tr>{name_td}{nc * 4}{krw_html}{val_html}"
                 + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
                 + f"{nc * 3}{desc_td}{chart_td}</tr>")
 
@@ -615,10 +742,12 @@ def fng_item_html(label, score, rating, asof, prev_line):
         f'            <div class="fng-head"><span class="fng-label">{label}</span>'
         f'<span class="fng-rating {cls}">{rating}</span></div>\n'
         f'            <div class="fng-score">{score}</div>\n'
-        f'            <div class="fng-bar"><div class="fng-mark" style="left:{score}%"></div></div>\n'
-        '            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span>'
-        '<span>극도의 탐욕 100</span></div>\n'
-        f'            <div class="fng-prev">{asof}<br>{prev_line}</div>\n'
+        f'            <div class="fng-bar" title="0 극도의 공포 · 50 중립 · 100 극도의 탐욕">'
+        f'<div class="fng-mark" style="left:{score}%"></div></div>\n'
+        '            <div class="fng-scale"><span>0 공포</span><span>50</span>'
+        '<span>탐욕 100</span></div>\n'
+        f'            <details class="fng-det"><summary>자세히</summary>'
+        f'<div class="fng-prev">{asof}<br>{prev_line}</div></details>\n'
         '          </div>'
     )
 
@@ -631,9 +760,10 @@ def fng_item_fail(label, note):
         '<span class="fng-rating needchk">확인 필요</span></div>\n'
         '            <div class="fng-score needchk">확인 필요</div>\n'
         '            <div class="fng-bar"></div>\n'
-        '            <div class="fng-scale"><span>0 극도의 공포</span><span>50 중립</span>'
-        '<span>극도의 탐욕 100</span></div>\n'
-        f'            <div class="fng-prev">{note}</div>\n'
+        '            <div class="fng-scale"><span>0 공포</span><span>50</span>'
+        '<span>탐욕 100</span></div>\n'
+        f'            <details class="fng-det"><summary>자세히</summary>'
+        f'<div class="fng-prev">{note}</div></details>\n'
         '          </div>'
     )
 
@@ -720,6 +850,14 @@ BIGTECH = [
     ("애플", "AAPL", "apple.com"),
     ("테슬라", "TSLA", "tesla.com"),
     ("오라클", "ORCL", "oracle.com"),
+    # ── 2026-08-16 추가. 여기 넣기만 하면 매출·영업이익·이익률·설비투자·잉여현금
+    #    흐름은 야후 분기 재무제표에서 자동으로 붙는다. 어닝콜 요약(EARNCALL)과
+    #    클라우드 부문(CLOUD_SEG)은 손으로 적는 자료라 아직 없고, 없으면 그 줄이
+    #    통째로 빠질 뿐 카드는 정상으로 나온다.
+    ("일라이릴리", "LLY", "lilly.com"),
+    ("월마트", "WMT", "walmart.com"),
+    ("인텔", "INTC", "intel.com"),
+    ("팔란티어", "PLTR", "palantir.com"),
 ]
 
 # 야후가 이 항목을 부르는 이름이 종목·시점에 따라 다르다. 순서대로 찾는다.
@@ -1472,14 +1610,23 @@ def idx_metrics(s, sym, ath):
     """
     if sym.startswith("FRED:"):
         last = float(s.iloc[-1])
+        d1, d5, d21 = (None if a is None else last - a
+                       for a in (ago(s, 1), ago(s, 5), ago(s, 21)))
         rows = [im_row(k, im_pp(None if a is None else last - a))
                 for k, a in [("전일 대비", ago(s, 1)), ("1주 대비", ago(s, 5)),
                              ("1개월 대비", ago(s, 21)), ("1년 대비", ago(s, 252))]]
         rows.append(im_row("52주 범위",
                            f'<span class="im-v">{float(s.tail(252).min()):.2f}~'
                            f'{float(s.tail(252).max()):.2f}%p</span>'))
-        return '<div class="idx-metrics">' + "".join(rows) + "</div>"
-    day, dd52, ddath, week, ytd, sd, rsi, mas, up52, base_yr = compute(s, False, ath)
+        # 값 자체가 %인 계열이라 제목 띠에도 비율이 아니라 %p로 적는다
+        stack = chg_rows([
+            ("일간", d1, "supp-dchg", "직전 거래일 대비 (%p)", "%p"),
+            ("주간", d5, "supp-wchg", "5거래일 전 대비 (%p)", "%p"),
+            ("1개월", d21, "supp-ychg", "21거래일 전 대비 (%p)", "%p"),
+        ])
+        return '<div class="idx-metrics">' + "".join(rows) + "</div>", stack
+    (day, dd52, ddath, week, ytd, sd, rsi, mas,
+     up52, base_yr, _lo, _hi) = compute(s, False, ath)
     streak, direction = sd
     st = ('<span class="im-v needchk">보합</span>' if streak == 0 else
           f'<span class="im-v up">{streak}일 상승</span>' if direction > 0 else
@@ -1493,44 +1640,39 @@ def idx_metrics(s, sym, ath):
             im_row("RSI", f'<span class="im-v">{rsi:.1f}</span>' if rsi is not None
                    else '<span class="im-v needchk">확인 필요</span>'),
             im_row("이평선", ma_html)]
-    return '<div class="idx-metrics">' + "".join(rows) + "</div>"
+    return ('<div class="idx-metrics">' + "".join(rows) + "</div>",
+            chg_stack(day, week, ytd, base_yr))
 
 
-def idx_card(name, label, tvsym, last, prev, digits, metrics="", is_pp=False):
-    """지수 카드 하나. 클릭하면 보조지표와 차트가 펼쳐지도록 <details>로 감싼다.
+def idx_card(name, label, tvsym, last, digits, metrics="", stack=""):
+    """지수 카드 하나. 클릭하면 보조지표가 펼쳐지도록 <details>로 감싼다.
 
-    is_pp=True는 값 자체가 이미 %인 계열(하이일드 스프레드)이다. 3.00 → 3.10을
-    "+3.33%"라고 적으면 10bp 벌어진 걸 3.3% 움직인 것으로 읽게 되므로, 이럴 땐
-    비율이 아니라 %p 차이로 적는다. 펼친 지표 표는 이미 %p로 적고 있었는데
-    접힌 카드 머리만 빠져 있었다.
+    차트는 뺐다(2026-08-16 요청). 트레이딩뷰 위젯이 카드 밖으로 넘쳐서 아래 카드를
+    덮었고, 같은 이유로 종목 카드에서도 이미 뺀 상태였다. tvsym 인자는 INDEXES
+    표의 모양을 유지하려고 남겨 둔다.
+
+    제목 띠는 종목 카드와 똑같이 일간·주간·연간 세 줄이다(2026-08-16 요청).
+    하이일드 스프레드처럼 값 자체가 %인 계열은 idx_metrics 쪽에서 %p로 만들어
+    넘겨주므로, 3.00 → 3.10이 "+3.33%"가 아니라 "+0.10%p"로 나온다.
     """
-    chg = last - prev
-    cls = "up" if chg > 0 else ("down" if chg < 0 else "flat")
-    sign = "+" if chg > 0 else ""
-    if is_pp:
-        head = f"{sign}{num(chg, digits)}%p"
-        sub = f"{num(chg * 100, 0)}bp"
-    elif not prev:
-        # 전일 값이 0이면 비율을 낼 수 없다. 0.00%라고 적으면 "안 움직였다"는
-        # 거짓말이 되므로 확인 필요로 둔다.
-        head, sub = "확인 필요", ""
-        cls = "needchk"
-    else:
-        head = f"{sign}{(last / prev - 1) * 100:.2f}%"
-        sub = f"{sign}{num(chg, digits)}"
     return (
         '          <details class="idx-card">\n'
         '            <summary class="idx-sum">\n'
         f'              <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
         f'              <div class="idx-val">{num(last, digits)}</div>\n'
-        f'              <div class="idx-chg {cls}">{head}'
-        f'<span class="idx-abs">{sub}</span></div>\n'
-        '              <span class="idx-more">지표·차트</span>\n'
+        f'              {stack}\n'
+        '              <span class="idx-more">지표</span>\n'
         '            </summary>\n'
         f'            {metrics}\n'
-        f'            <div class="idx-chart" data-tvsym="{tvsym}"></div>\n'
         '          </details>'
     )
+
+
+def empty_stack():
+    """시세를 못 받았을 때의 등락 3줄 — 줄 수는 그대로라 카드 높이가 안 흔들린다."""
+    return chg_rows([("일간", None, "supp-dchg", None, "%"),
+                     ("주간", None, "supp-wchg", None, "%"),
+                     ("연간", None, "supp-ychg", None, "%")])
 
 
 def idx_card_fail(name, label, tvsym):
@@ -1539,10 +1681,8 @@ def idx_card_fail(name, label, tvsym):
         '            <summary class="idx-sum">\n'
         f'              <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
         '              <div class="idx-val needchk">확인 필요</div>\n'
-        '              <div class="idx-chg needchk">시세를 못 받아왔습니다</div>\n'
-        '              <span class="idx-more">지표·차트</span>\n'
+        f"              {empty_stack()}\n"
         '            </summary>\n'
-        f'            <div class="idx-chart" data-tvsym="{tvsym}"></div>\n'
         '          </details>'
     )
 
@@ -1556,14 +1696,13 @@ def build_idx(closes, aths=None):
             if len(s) < 2:
                 raise ValueError("데이터 부족")
             try:
-                metrics = idx_metrics(s, sym, aths.get(sym))
+                metrics, stack = idx_metrics(s, sym, aths.get(sym))
             except Exception as me:
-                # 지표 계산이 안 돼도 카드 자체(현재값·등락)는 살린다
+                # 지표 계산이 안 돼도 카드 자체(현재값)는 살린다
                 print(f"  [warn] 지수 지표 {sym}: {me}", file=sys.stderr)
-                metrics = ""
+                metrics, stack = "", empty_stack()
             cards.append(idx_card(name, label, tvsym,
-                                  float(s.iloc[-1]), float(s.iloc[-2]), digits, metrics,
-                                  is_pp=sym.startswith("FRED:")))
+                                  float(s.iloc[-1]), digits, metrics, stack))
             ok += 1
         except Exception as e:
             print(f"  [warn] 지수 {sym}: {e}", file=sys.stderr)
@@ -2049,7 +2188,8 @@ def yld_item(label, val, prev, m1, y1, unit="%"):
             f'            <div class="yld-label">{label}</div>\n'
             f'            <div class="yld-val">{val:.2f}{unit}</div>\n'
             f'            <div class="yld-sub">{chg_html}</div>\n'
-            f'            <div class="yld-hist">{hist}</div>\n'
+            f'            <details class="yld-det"><summary>과거</summary>'
+            f'<div class="yld-hist">{hist}</div></details>\n'
             '          </div>')
 
 
@@ -2102,12 +2242,20 @@ def build_yield(closes):
         spm = (m10 - m02) if (m10 is not None and m02 is not None) else None
         spy = (y10 - y02) if (y10 is not None and y02 is not None) else None
         items.append(yld_item("장단기 금리차 (10년 − 2년)", sp, spp, spm, spy, unit="%p"))
+        why = ('<span class="yld-why">돈을 오래 빌려주는 쪽이 더 낮은 이자를 받는 '
+               '뒤집힌 상태입니다. 시장이 "가까운 미래에 경기가 나빠져 금리가 내려갈 것"으로 '
+               '보고 있다는 뜻이라, 과거 미국 경기침체 앞에서 거의 매번 먼저 나타났습니다. '
+               '다만 역전 시점과 실제 침체 사이에는 대체로 1~2년 시차가 있었고, 역전이 '
+               '풀리는 국면이 오히려 침체와 더 가까웠습니다.</span>')
         if sp < 0:
             state = ('<b class="down">역전 상태</b> — 2년물이 10년물보다 '
-                     f'{abs(sp) * 100:.0f}bp 높습니다')
+                     f'{abs(sp) * 100:.0f}bp 높습니다' + why)
         else:
             state = ('<b class="up">역전 아님</b> — 10년물이 2년물보다 '
-                     f'{sp * 100:.0f}bp 높습니다')
+                     f'{sp * 100:.0f}bp 높습니다'
+                     '<span class="yld-why">장기 금리가 단기보다 높은 정상적인 모양입니다. '
+                     '이 차이가 좁아지다 마이너스로 내려가면 "장단기 금리 역전"이라 부릅니다.'
+                     "</span>")
         print(f"  금리 10Y={t10:.2f} 2Y={t02:.2f} 차={sp:+.2f}%p")
 
     return ('        <div class="yld-grid">\n' + "\n".join(items) + "\n        </div>\n"
@@ -2731,18 +2879,11 @@ def main(html_path):
                     mcaps[sym] = float(mc)
             except Exception:
                 pass
-            # PER은 fast_info에 없어서 info를 따로 부른다. 느리고 가끔 비어서
-            # 오는데, 실패하면 그 칸만 "확인 필요"가 되고 나머지는 멀쩡하다.
+            # PER·PBR·ROE·부채비율은 fast_info에 없어서 info를 따로 부른다. 느리고
+            # 가끔 비어서 오는데, 실패하면 그 칸만 "확인 필요"가 되고 나머지는 멀쩡하다.
+            # 한 번 부른 info에서 네 지표를 다 뽑으므로 요청 수는 늘지 않는다.
             try:
-                info = yf.Ticker(sym).info or {}
-                t, f_ = info.get("trailingPE"), info.get("forwardPE")
-                d = {}
-                if isinstance(t, (int, float)) and math.isfinite(t):
-                    d["trailing"] = float(t)
-                if isinstance(f_, (int, float)) and math.isfinite(f_):
-                    d["forward"] = float(f_)
-                if d:
-                    pers[sym] = d
+                pers[sym] = pick_valuation(yf.Ticker(sym).info or {})
             except Exception:
                 pass
     n_target = len(SECTIONS["us30"]) + len(SECTIONS["kr10"])
@@ -2758,7 +2899,7 @@ def main(html_path):
             make_row(*row, closes, aths,
                      ETF_DESC.get(row[0]) if section == "etf" else None,
                      ETF_TAG.get(row[0]) if section == "etf" else None,
-                     rank, vols, pers, section == "etf")
+                     rank, vols, pers, section == "etf", closes.get("KRW=X"))
             for row, rank in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
