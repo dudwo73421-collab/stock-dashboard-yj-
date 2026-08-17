@@ -263,38 +263,6 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
             up52, this_year, low52, high52)
 
 
-def krw_returns(close, fx):
-    """달러로 표시된 종목을 원화로 환산했을 때의 주간·연초대비 수익률.
-
-    한국에서 미국 주식을 사면 실제 손익은 "주가 변동 × 환율 변동"이다. 달러로
-    +17%여도 그 사이 원달러가 8% 내렸으면 원화로는 +8%다. 그래서 각 시점의
-    종가에 그 시점 환율을 곱한 원화 환산 시계열을 만들어서 다시 계산한다.
-
-    환율은 거의 24시간 돌아가서 주식과 거래일이 다르다. 주식 날짜에 맞춰 직전
-    환율로 채운 뒤(reindex+ffill) 곱한다. 겹치는 날이 모자라면 지어내지 않고
-    None을 돌려준다.
-    """
-    if fx is None:
-        return None, None
-    try:
-        c = close.dropna()
-        f = fx.dropna()
-        if len(c) < 6 or f.empty:
-            return None, None
-        # 주식 첫 거래일보다 환율이 늦게 시작하면 앞쪽이 비므로 그만큼 잘라낸다
-        aligned = f.reindex(c.index.union(f.index)).ffill().reindex(c.index)
-        k = (c * aligned).dropna()
-        if len(k) < 6:
-            return None, None
-        last = float(k.iloc[-1])
-        week = (last / float(k.iloc[-6]) - 1) * 100
-        prev = k[k.index.year < int(k.index[-1].year)]
-        ytd = (last / float(prev.iloc[-1]) - 1) * 100 if len(prev) else None
-        return week, ytd
-    except Exception:
-        return None, None
-
-
 def pick_valuation(info):
     """야후 info에서 PER·선행PER·PBR·ROE·부채비율을 뽑는다.
 
@@ -366,6 +334,16 @@ def range_cell(low, high, last):
             f'0%가 52주 최저 종가, 100%가 52주 최고 종가입니다">'
             f'<span class="rng"><i style="left:{pos:.1f}%"></i></span>'
             f'<b class="rng-v">{pos:.0f}%</b></td>')
+
+
+# 펼친 표 13칸이 라벨/값 쌍으로 쭉 나열되니 뭐가 뭔지 안 읽힌다는 지적(2026-08-17).
+# 성격이 같은 것끼리 네 묶음으로 나누고, 묶음 제목 줄을 사이에 넣는다.
+# 이 제목 칸도 진짜 <td>라서 <thead>에 짝이 되는 <th>가 있어야 열 수가 맞는다.
+SUPP_GROUPS = ["가격 위치", "밸류에이션 · 재무", "거래", "기술 지표"]
+
+
+def grp_cell(title):
+    return f'<td class="supp-grp">{title}</td>'
 
 
 def rsi_cell(v):
@@ -571,7 +549,7 @@ def chg_rows(items):
     return '<div class="supp-chg">' + "".join(out) + "</div>"
 
 
-def chg_stack(day, week, ytd, base_yr=None):
+def chg_stack(day, week, ytd, ddath=None, base_yr=None):
     """제목 띠 오른쪽에 붙는 일간/주간/올해 등락 세 줄.
 
     값이 없으면 지어내지 않고 "확인 필요"로 둔다. 줄 수는 값이 있든 없든 항상 셋이라
@@ -585,11 +563,15 @@ def chg_stack(day, week, ytd, base_yr=None):
         ("주간", week, "supp-wchg", "5거래일 전 종가 대비", "%"),
         (f"{yr % 100}년", ytd, "supp-ychg",
          f"{yr - 1}년 마지막 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다", "%"),
+        # 사상최고 대비도 접힌 상태에서 바로 보이게 (2026-08-16 요청).
+        # 최근 1년이 아니라 상장 이후 전체 기간의 최고 종가가 기준이다.
+        ("사상최고", ddath, "supp-achg",
+         "상장 이후 전체 기간의 최고 종가 대비 — 52주 고점이 아닙니다", "%"),
     ])
 
 
 def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None,
-             rank=None, vols=None, pers=None, is_etf=False, fx=None):
+             rank=None, vols=None, pers=None, is_etf=False):
     # 기간 지표(일간·주간·올해)는 전부 제목 띠 오른쪽에 세로로 쌓았고, 표에는
     # 펼쳐야 보이는 것들만 남겼다: 고점대비 두 개, 연속, RSI, 이평선.
     # desc가 있으면(ETF) 카드 맨 아래에 설명 한 줄이 붙는다.
@@ -644,12 +626,6 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                     + pct_val_cell(p.get("de"), 0,
                                    tip="부채비율(부채 ÷ 자기자본) — 100%면 부채와 자기자본이 같다는 뜻"))
 
-    # 원화 환산 수익률. 한국 종목은 원래 원화라 계산할 것이 없다.
-    if sym.endswith((".KS", ".KQ")):
-        krw_html = na_cell("이미 원화로 거래되는 종목입니다") * 2
-    else:
-        kw, ky = krw_returns(closes[sym], fx) if sym in closes else (None, None)
-        krw_html = pct_cell(kw) + pct_cell(ky)
 
     try:
         close = closes[sym]
@@ -658,7 +634,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
          up52, base_yr, low52, high52) = compute(close, rate, aths.get(sym))
         # 접힌 카드에서도 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청).
         # 일간 아래 주간까지 두 줄로 쌓는다 (2026-08-16 요청).
-        chg_html = chg_stack(day, week, ytd, base_yr)
+        chg_html = chg_stack(day, week, ytd, ddath, base_yr)
         # 제목 띠는 두 줄이다 — 왼쪽 위: 이름·티커, 왼쪽 아래: 가격.
         # 오른쪽에는 일간/주간 등락이 두 줄로 붙는다.
         # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
@@ -671,10 +647,13 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                 "d-down" if day and day < 0 else "d-flat")
         # 일간·주간·YTD는 제목 띠에 있으므로 표에서는 뺀다 (2026-08-15·16 요청)
         return (f'          <tr class="{sign}">' + name_td
+                + grp_cell(SUPP_GROUPS[0])
                 + range_cell(low52, high52, float(close.dropna().iloc[-1]))
-                + pct_cell(up52) + pct_cell(dd52) + pct_cell(ddath)
-                + krw_html + val_html
+                + pct_cell(up52) + pct_cell(dd52)
+                + grp_cell(SUPP_GROUPS[1]) + val_html
+                + grp_cell(SUPP_GROUPS[2])
                 + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
+                + grp_cell(SUPP_GROUPS[3])
                 + streak_cell(sd) + rsi_cell(rsi) + ma_cell(mas)
                 + desc_td + chart_td + "</tr>")
     except Exception as e:
@@ -684,10 +663,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                    f'<div class="supp-l1"><span class="{ncls}">{name}</span>'
                    f'<span class="supp-ticker">{label}</span></div>'
                    f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
-                   f'</div>{chg_stack(None, None, None)}</td>')
-        return (f"          <tr>{name_td}{nc * 4}{krw_html}{val_html}"
+                   f'</div>{empty_stack()}</td>')
+        return (f"          <tr>{name_td}{grp_cell(SUPP_GROUPS[0])}{nc * 3}"
+                + f"{grp_cell(SUPP_GROUPS[1])}{val_html}{grp_cell(SUPP_GROUPS[2])}"
                 + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
-                + f"{nc * 3}{desc_td}{chart_td}</tr>")
+                + f"{grp_cell(SUPP_GROUPS[3])}{nc * 3}{desc_td}{chart_td}</tr>")
 
 
 # ---------------------------------------------------------------- 공포·탐욕 지수
@@ -926,6 +906,17 @@ def bil(v):
 def pct_span(v):
     if v is None:
         return '<span class="needchk">확인 필요</span>'
+    if isinstance(v, tuple):                      # 전년이 적자 → %가 성립하지 않는다
+        _, prev, now = v
+        tip = (f"전년 동기가 {bil(prev)}로 적자여서 증감률을 %로 낼 수 없습니다 "
+               f"(적자를 기준으로 나누면 부호가 뒤집힙니다). 올해는 {bil(now)}입니다.")
+        if now > 0:
+            return f'<span class="up" title="{tip}">적자 → 흑자</span>'
+        if now > prev:
+            return f'<span class="up" title="{tip}">적자 축소</span>'
+        if now < prev:
+            return f'<span class="down" title="{tip}">적자 확대</span>'
+        return f'<span class="flat" title="{tip}">적자 지속</span>'
     cls = "up" if v > 0 else ("down" if v < 0 else "flat")
     return f'<span class="{cls}">{v:+.1f}%</span>'
 
@@ -1067,10 +1058,25 @@ def fin_metric(label, vals, labs, fmt, chg_html, kind="money", chg_label="전년
 
 
 def yoy(vals):
-    """전년 동기(4분기 전) 대비 증감률. 5개 분기가 없거나 값이 비면 None."""
+    """전년 동기(4분기 전) 대비.
+
+    기준이 되는 전년 값이 마이너스(적자)면 (올해/전년 - 1)의 부호가 뒤집힌다.
+    예: 전년 영업이익 -10억, 올해 +15.3억 → (15.3 / -10 - 1) = -2.529 → "-252.9%".
+    영업이익이 늘었는데 마이너스 증감률이 찍히는 것이다(2026-08-16 영재님이 인텔
+    카드에서 발견). 적자를 기준으로 한 배수는 애초에 뜻이 없으므로, 숫자를 고쳐
+    적는 대신 "적자→흑자"처럼 무슨 일이 있었는지로 바꿔 적는다.
+
+    돌려주는 값
+      - float                  : 정상적인 증감률(%)
+      - ("turn", 전년, 올해)    : 전년이 적자라 %로 적을 수 없는 경우
+      - None                   : 분기 수가 모자라거나 값이 비어 있음
+    """
     if len(vals) < 5 or vals[-1] is None or vals[-5] is None or not vals[-5]:
         return None
-    return (vals[-1] / vals[-5] - 1) * 100
+    prev, now = vals[-5], vals[-1]
+    if prev < 0:
+        return ("turn", prev, now)
+    return (now / prev - 1) * 100
 
 
 def fin_item(name, ticker, logo, series, cash):
@@ -1619,10 +1625,12 @@ def idx_metrics(s, sym, ath):
                            f'<span class="im-v">{float(s.tail(252).min()):.2f}~'
                            f'{float(s.tail(252).max()):.2f}%p</span>'))
         # 값 자체가 %인 계열이라 제목 띠에도 비율이 아니라 %p로 적는다
+        d252 = (None if ago(s, 252) is None else last - ago(s, 252))
         stack = chg_rows([
             ("일간", d1, "supp-dchg", "직전 거래일 대비 (%p)", "%p"),
             ("주간", d5, "supp-wchg", "5거래일 전 대비 (%p)", "%p"),
             ("1개월", d21, "supp-ychg", "21거래일 전 대비 (%p)", "%p"),
+            ("1년", d252, "supp-achg", "252거래일 전 대비 (%p)", "%p"),
         ])
         return '<div class="idx-metrics">' + "".join(rows) + "</div>", stack
     (day, dd52, ddath, week, ytd, sd, rsi, mas,
@@ -1641,7 +1649,7 @@ def idx_metrics(s, sym, ath):
                    else '<span class="im-v needchk">확인 필요</span>'),
             im_row("이평선", ma_html)]
     return ('<div class="idx-metrics">' + "".join(rows) + "</div>",
-            chg_stack(day, week, ytd, base_yr))
+            chg_stack(day, week, ytd, ddath, base_yr))
 
 
 def idx_card(name, label, tvsym, last, digits, metrics="", stack=""):
@@ -1658,10 +1666,11 @@ def idx_card(name, label, tvsym, last, digits, metrics="", stack=""):
     return (
         '          <details class="idx-card">\n'
         '            <summary class="idx-sum">\n'
-        f'              <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
-        f'              <div class="idx-val">{num(last, digits)}</div>\n'
+        '              <div class="idx-main">\n'
+        f'                <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
+        f'                <div class="idx-val">{num(last, digits)}</div>\n'
+        '              </div>\n'
         f'              {stack}\n'
-        '              <span class="idx-more">지표</span>\n'
         '            </summary>\n'
         f'            {metrics}\n'
         '          </details>'
@@ -1672,15 +1681,18 @@ def empty_stack():
     """시세를 못 받았을 때의 등락 3줄 — 줄 수는 그대로라 카드 높이가 안 흔들린다."""
     return chg_rows([("일간", None, "supp-dchg", None, "%"),
                      ("주간", None, "supp-wchg", None, "%"),
-                     ("연간", None, "supp-ychg", None, "%")])
+                     ("연간", None, "supp-ychg", None, "%"),
+                     ("사상최고", None, "supp-achg", None, "%")])
 
 
 def idx_card_fail(name, label, tvsym):
     return (
         '          <details class="idx-card">\n'
         '            <summary class="idx-sum">\n'
-        f'              <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
-        '              <div class="idx-val needchk">확인 필요</div>\n'
+        '              <div class="idx-main">\n'
+        f'                <div class="idx-name">{name}<span class="idx-sym">{label}</span></div>\n'
+        '                <div class="idx-val needchk">확인 필요</div>\n'
+        '              </div>\n'
         f"              {empty_stack()}\n"
         '            </summary>\n'
         '          </details>'
@@ -2667,6 +2679,93 @@ def build_sector(closes):
             '      <div class="sec-grid">\n' + "\n".join(tiles) + "\n      </div>")
 
 
+# ------------------------------------------------------------------ 버전 · 변경 이력
+#
+# 화면 맨 위에 버전 뱃지가 뜨고, 누르면 개요 탭 맨 아래 변경 이력으로 간다.
+# 새 기능을 넣거나 값이 달라지는 수정을 하면 여기 맨 앞에 한 줄 추가하고
+# VERSION을 올린다. 자동으로 붙는 게 아니라 손으로 적는 자료다.
+#   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
+#   - "추가"는 없던 정보가 생긴 것
+#   - "정리"는 숫자는 그대로인데 보기가 달라진 것
+VERSION = "2.4"
+
+CHANGELOG = [
+    ("2.4", "2026-08-17", [
+        ("추가", "반도체 탭에 <b>낸드 점유율</b>(삼성·SK하이닉스·마이크론·키옥시아·샌디스크·YMTC)과 "
+                "<b>낸드 계약가 추이</b> 카드를 넣었습니다. ’26 2분기 매출 점유율은 아직 발표 전이라 "
+                "비워 뒀고, 계약가는 확정치가 나온 분기가 ’25 1분기 하나뿐이라 나머지는 전망으로 표시했습니다."),
+        ("정리", "카드를 펼쳤을 때 나오는 13칸을 <b>가격 위치 · 밸류에이션/재무 · 거래 · 기술 지표</b> "
+                "네 묶음으로 나누고 사이에 제목 줄을 넣었습니다."),
+        ("정리", "정렬 기준을 열 번호가 아니라 <b>열 이름</b>으로 찾도록 바꿨습니다 — 앞으로 칸이 "
+                "늘거나 순서가 바뀌어도 엉뚱한 열로 정렬되지 않습니다."),
+        ("고침", "개요 탭 히트맵 카드에 <b>&lt;/div&gt;가 하나 더 있어</b> 그 뒤 내용이 탭 밖으로 "
+                "새어 나오고 있었습니다(v1.9에서 경제 캘린더를 지울 때 남은 자국)."),
+    ]),
+    ("2.3", "2026-08-17", [
+        ("고침", "빅테크분석의 전년 동기 대비 증감률이 <b>전년이 적자일 때 부호가 뒤집혔습니다</b>. "
+                "인텔은 영업이익이 늘었는데 −252.9%로 찍혔습니다 — 적자를 기준으로 나누면 "
+                "생기는 문제라, 이제 %가 아니라 \"적자 → 흑자\"처럼 무슨 일이 있었는지로 적습니다."),
+        ("추가", "카드 제목에 <b>사상최고 대비</b>를 넣어 일간·주간·연간과 함께 네 줄로 보입니다."),
+        ("추가", "빅테크분석 탭에 <b>일라이릴리·월마트·인텔·팔란티어</b>를 넣어 12종목이 됐습니다."),
+        ("정리", "개요 지수 카드를 종목 카드와 같은 좌우 배치로 바꿔 세로 길이를 줄였습니다."),
+        ("정리", "v2.2에 넣었던 <b>원화 기준 수익률</b> 칸은 요청에 따라 뺐습니다."),
+    ]),
+    ("2.2", "2026-08-16", [
+        ("추가", "<b>PBR·ROE·부채비율</b>을 펼침 표에 넣었습니다."),
+        ("추가", "<b>원화 기준 수익률</b> — 미국 종목을 환율까지 반영해 원화로 환산한 주간·연간 수익률."),
+        ("추가", "<b>스크리너</b> — PER·PBR·ROE·부채비율·RSI·52주 저점/고점대비·거래량 8개 조건을 동시에 겁니다."),
+        ("추가", "<b>52주 위치 게이지</b>와 <b>갱신 멈춤 경보</b>(거래일 3일 이상 밀리면 상단에 띠)."),
+        ("정리", "개요 지수 카드의 트레이딩뷰 차트를 뺐습니다 — 위젯이 카드 밖으로 넘쳐 아래를 덮었습니다."),
+    ]),
+    ("2.1", "2026-08-16", [
+        ("고침", "<b>사상최고 대비</b>가 전체 기간 시세를 못 받으면 조용히 15개월 최고가로 대체되고 "
+                "있었습니다. 이제 실제로 받은 종목만 숫자를 내고 나머지는 \"확인 필요\"입니다."),
+        ("고침", "<b>52주 고점/저점대비</b>가 1년치 데이터가 없는 종목(스페이스X 등)에도 계산됐습니다."),
+        ("고침", "<b>시총 TOP10</b>이 한국 종목 개수까지 세는 바람에 미국이 대부분 빠져도 게시됐습니다."),
+        ("고침", "<b>실적 캘린더</b>가 40건 제한을 달력에도 적용해 둘째 달 일정이 통째로 사라졌습니다."),
+        ("고침", "<b>하이일드 스프레드</b>가 카드 머리에서만 %p를 %로 적었습니다(10bp → \"+3.33%\")."),
+        ("고침", "<b>장단기 금리차</b>가 서로 다른 날짜의 두 금리를 뺐습니다."),
+        ("고침", "미국 <b>실적 발표일</b>을 한국 날짜로 걸러, 오늘 밤 발표하는 회사가 빠졌습니다."),
+        ("고침", "장중에 <b>거래량 배수</b>가 부분 거래량으로 계산돼 오전엔 늘 \"0.1배\"로 나왔습니다."),
+        ("고침", "연도 라벨이 실행 시각 기준이라 새해 첫날 어긋났습니다 — 시세 날짜 기준으로 바꿨습니다."),
+        ("고침", "RSI가 계산 불가일 때 \"nan\"으로 찍히던 것을 \"확인 필요\"로 바꿨습니다."),
+    ]),
+    ("2.0", "2026-08-16", [
+        ("추가", "<b>PER·선행 PER</b>, <b>거래대금·평소 대비 거래량</b>, <b>52주 저점대비</b>."),
+        ("추가", "개요 탭에 <b>섹터별 등락 히트맵</b> — 미국 60 + 한국 20을 9개 업종으로."),
+        ("고침", "<b>스페이스X</b>는 2026-06-12에 나스닥 상장(SPCX)했는데 비상장으로 처리돼 순위에서 빠져 있었습니다."),
+        ("추가", "실적 캘린더에 <b>CPI·PPI·PCE</b> 일정(BLS·BEA 공식 일정표 기준)."),
+    ]),
+    ("1.9", "2026-08-16", [
+        ("추가", "카드 제목 띠에 <b>일간·주간·연간</b> 등락률."),
+        ("정리", "쓰지 않던 경제 캘린더 위젯을 없앴고, 실적 발표일이 올라오는 기준을 설명에 밝혔습니다."),
+    ]),
+    ("1.8", "2026-08-15", [
+        ("추가", "<b>반도체</b>·<b>자동차</b> 탭(점유율·가격 추이), 미국 <b>TOP60</b>으로 확장."),
+        ("추가", "야간모드, 전체 펼치기 버튼, 시가총액 순위 뱃지."),
+        ("정리", "종목 카드를 두 줄(이름·티커 / 가격)로 바꾸고 모든 카드 높이를 맞췄습니다."),
+    ]),
+]
+
+
+def build_changelog():
+    kind_cls = {"고침": "cl-fix", "추가": "cl-new", "정리": "cl-tidy"}
+    out = []
+    for i, (ver, date, items) in enumerate(CHANGELOG):
+        lis = "".join(
+            f'<li><span class="cl-tag {kind_cls.get(k, "")}">{k}</span>'
+            f'<span class="cl-txt">{t}</span></li>'
+            for k, t in items)
+        out.append(
+            f'        <details class="cl-ver"{" open" if i == 0 else ""}>\n'
+            f'          <summary><b>v{ver}</b><span class="cl-date">{date}</span>'
+            f'{"<span class=" + chr(34) + "cl-now" + chr(34) + ">현재</span>" if i == 0 else ""}'
+            f'<span class="cl-cnt">{len(items)}건</span></summary>\n'
+            f'          <ul class="cl-list">{lis}</ul>\n'
+            '        </details>')
+    return "\n".join(out)
+
+
 def load_ath_cache():
     """저장해 둔 사상최고 값을 읽는다. 없거나 깨져 있으면 빈 값으로 시작한다.
 
@@ -2899,7 +2998,7 @@ def main(html_path):
             make_row(*row, closes, aths,
                      ETF_DESC.get(row[0]) if section == "etf" else None,
                      ETF_TAG.get(row[0]) if section == "etf" else None,
-                     rank, vols, pers, section == "etf", closes.get("KRW=X"))
+                     rank, vols, pers, section == "etf")
             for row, rank in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
@@ -2909,6 +3008,11 @@ def main(html_path):
             continue
         html = html[: i + len(start)] + "\n" + body + "\n          " + html[j:]
         ok_count += 1
+
+    html, ver_ok = splice(html, "CHANGELOG", build_changelog())
+    for a, b in (("VER", "/VER"), ("VER2", "/VER2")):
+        html = re.sub(rf"(<!--{a}-->)(.*?)(<!--{b}-->)",
+                      lambda m: m.group(1) + f"v{VERSION}" + m.group(3), html, flags=re.S)
 
     print("building sector heatmap...")
     html, sec_ok = splice(html, "SECTOR", build_sector(closes))
@@ -2969,6 +3073,7 @@ def main(html_path):
           f"mcap={'ok' if mcap_ok else 'MARKER MISSING'}({len(mcaps)}종목), "
           f"sig={'ok' if sig_ok else 'MARKER MISSING'}, "
           f"sector={'ok' if sec_ok else 'MARKER MISSING'}, "
+          f"ver=v{VERSION}{'' if ver_ok else '(MARKER MISSING)'}, "
           f"run={today}, 미국종가={us_d or '확인 필요'}, 한국종가={kr_d or '확인 필요'}")
 
 
