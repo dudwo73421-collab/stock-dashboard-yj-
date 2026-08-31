@@ -119,6 +119,31 @@ SECTIONS = {
         ("크라우드스트라이크", "CRWD", "crowdstrike.com", "CRWD", True),
         ("IBM", "IBM", "ibm.com", "IBM", True),
         ("써모피셔", "TMO", "thermofisher.com", "TMO", True),
+        # ── 2026-08-31 TOP75 확장. 미국 시총 1~75위를 다 채웠다(외국 기업 6개는
+        #    그대로 두고 "해외" 표시를 붙였다). 출처 companiesmarketcap USA 목록,
+        #    2026-08-28 종가 기준. 팔로알토네트웍스(39위)는 확장이 아니라 그동안
+        #    빠져 있던 것을 메운 것이다.
+        ("팔로알토네트웍스", "PANW", "paloaltonetworks.com", "PANW", True),
+        ("세일즈포스", "CRM", "salesforce.com", "CRM", True),
+        ("버라이즌", "VZ", "verizon.com", "VZ", True),
+        ("마벨", "MRVL", "marvell.com", "MRVL", True),
+        ("애보트", "ABT", "abbott.com", "ABT", True),
+        ("티모바일", "TMUS", "t-mobile.com", "TMUS", True),
+        ("앰페놀", "APH", "amphenol.com", "APH", True),
+        ("펩시코", "PEP", "pepsico.com", "PEP", True),
+        ("찰스슈왑", "SCHW", "schwab.com", "SCHW", True),
+        ("블랙록", "BLK", "blackrock.com", "BLK", True),
+        ("맥도날드", "MCD", "mcdonalds.com", "MCD", True),
+        ("디즈니", "DIS", "thewaltdisneycompany.com", "DIS", True),
+        ("유니온퍼시픽", "UNP", "up.com", "UNP", True),
+        ("길리어드", "GILD", "gilead.com", "GILD", True),
+        ("AT&amp;T", "T", "att.com", "T", True),
+        ("서던코퍼", "SCCO", "southerncoppercorp.com", "SCCO", True),
+        ("퀄컴", "QCOM", "qualcomm.com", "QCOM", True),
+        ("아나로그디바이스", "ADI", "analog.com", "ADI", True),
+        ("웰타워", "WELL", "welltower.com", "WELL", True),
+        ("넥스트에라에너지", "NEE", "nexteraenergy.com", "NEE", True),
+        ("블랙스톤", "BX", "blackstone.com", "BX", True),
     ],
     "kr10": [
         ("삼성전자", "005930", "samsung.com", "005930.KS", True),
@@ -515,6 +540,12 @@ def rank_sorted(section, rows, mcaps):
     return [(r, i) for i, r in enumerate(have, 1)] + [(r, None) for r in missing]
 
 
+# 미국 탭에 섞여 있는 외국 기업. 반도체·제약을 볼 때 같이 봐야 해서 남겨 뒀지만,
+# 순위 뱃지는 "미국 기업 순위"가 아니라 이 목록 안의 시가총액 순서라서 헷갈릴 수
+# 있다. 그래서 카드에 "해외" 표시를 붙여 둔다 (2026-08-31 영재님 선택).
+FOREIGN_LISTED = {"TSM", "ASML", "ARM", "HSBC", "NVS", "RY"}
+
+
 def name_class(name):
     """이름 길이에 따라 글자 크기 단계를 고른다 (2026-08-16).
 
@@ -571,7 +602,7 @@ def chg_stack(day, week, ytd, ddath=None, base_yr=None):
 
 
 def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=None,
-             rank=None, vols=None, pers=None, is_etf=False):
+             rank=None, vols=None, pers=None, is_etf=False, mcaps=None):
     # 기간 지표(일간·주간·올해)는 전부 제목 띠 오른쪽에 세로로 쌓았고, 표에는
     # 펼쳐야 보이는 것들만 남겼다: 고점대비 두 개, 연속, RSI, 이평선.
     # desc가 있으면(ETF) 카드 맨 아래에 설명 한 줄이 붙는다.
@@ -588,6 +619,10 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
     # 좁은 카드에서 잘린다. 칸을 넓히면 한 줄에 들어가는 카드 수가 줄어서
     # 대신 이름 쪽 글자만 단계적으로 줄인다.
     ncls = name_class(name)
+    foreign_html = ('<span class="supp-foreign" title="미국에 상장했지만 본사가 미국이 '
+                    '아닌 기업입니다 — 왼쪽 순위는 미국 기업 순위가 아니라 이 목록 '
+                    '안에서의 시가총액 순서입니다">해외</span>'
+                    if label in FOREIGN_LISTED else "")
     # 펼침 카드에서 차트는 뺐다(2026-08-15 요청) — 위젯 로딩이 느리고 좁은 카드에서
     # 잘 안 보여서, 차트는 개요 탭 지수 카드에서만 쓴다.
     chart_td = ""
@@ -612,6 +647,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         except Exception as e:
             print(f"  [warn] {sym} 거래량: {e}", file=sys.stderr)
     cur = "KRW" if sym.endswith((".KS", ".KQ")) else "USD"
+    mcap_html = mcap_cell((mcaps or {}).get(sym), cur, is_etf)
     if is_etf:
         # ETF는 기업 재무제표가 없다(개별 기업이 아니라 바구니라서).
         # 못 받아온 것과 구분해서 "해당 없음"으로 둔다.
@@ -640,7 +676,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
         name_td = (f'<td>{rank_html}{logo_html}<div class="supp-main">'
                    f'<div class="supp-l1"><span class="{ncls}">{name}</span>'
-                   f'<span class="supp-ticker">{label}</span></div>'
+                   f'<span class="supp-ticker">{label}</span>{foreign_html}</div>'
                    f'<div class="supp-l2">{tag_html}{px}</div></div>{chg_html}</td>')
         # 카드 왼쪽 띠 색: 오늘 오르면 빨강, 내리면 파랑 (2026-08-09 시인성 개선)
         sign = ("d-up" if day and day > 0 else
@@ -650,7 +686,7 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
                 + grp_cell(SUPP_GROUPS[0])
                 + range_cell(low52, high52, float(close.dropna().iloc[-1]))
                 + pct_cell(up52) + pct_cell(dd52)
-                + grp_cell(SUPP_GROUPS[1]) + val_html
+                + grp_cell(SUPP_GROUPS[1]) + mcap_html + val_html
                 + grp_cell(SUPP_GROUPS[2])
                 + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
                 + grp_cell(SUPP_GROUPS[3])
@@ -661,11 +697,11 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         nc = '<td class="needchk">확인 필요</td>'
         name_td = (f'<td>{rank_html}{logo_html}<div class="supp-main">'
                    f'<div class="supp-l1"><span class="{ncls}">{name}</span>'
-                   f'<span class="supp-ticker">{label}</span></div>'
+                   f'<span class="supp-ticker">{label}</span>{foreign_html}</div>'
                    f'<div class="supp-l2"><span class="supp-px needchk">확인 필요</span></div>'
                    f'</div>{empty_stack()}</td>')
         return (f"          <tr>{name_td}{grp_cell(SUPP_GROUPS[0])}{nc * 3}"
-                + f"{grp_cell(SUPP_GROUPS[1])}{val_html}{grp_cell(SUPP_GROUPS[2])}"
+                + f"{grp_cell(SUPP_GROUPS[1])}{mcap_html}{val_html}{grp_cell(SUPP_GROUPS[2])}"
                 + turnover_cell(turnover, cur, intraday) + volmul_cell(volmul, intraday)
                 + f"{grp_cell(SUPP_GROUPS[3])}{nc * 3}{desc_td}{chart_td}</tr>")
 
@@ -1873,292 +1909,33 @@ def build_signals(closes):
     return f'\n        <div class="sig-grid">{body}</div>\n      '
 
 
-# ------------------------------------------------------------- 시총순위 차트
+# ------------------------------------------------- 시가총액 표기
 #
-# 개요: 반기별 순위는 손으로 검증해 넣은 값(MCAP_HIST)이고, 마지막 "현재" 열만
-# 매 실행 때 야후 파이낸스 시가총액으로 다시 계산한다. 시가총액을 충분히 못
-# 받아오면(30개 미만) 지어내지 않고 MCAP_HIST에 저장된 마지막 수기 스냅샷을
-# 그대로 쓴다 — 그 경우 화면에는 수기 기준일이 그대로 남는다.
-# 과거 값의 출처는 index.html의 접힌 표(반기별 표)에 링크로 남아 있다.
-
-MCAP_KO = {
-    "Apple": "애플", "Microsoft": "마이크로소프트", "Alphabet": "알파벳",
-    "Amazon": "아마존", "Berkshire Hathaway": "버크셔해서웨이", "Tesla": "테슬라",
-    "Meta Platforms": "메타", "Johnson & Johnson": "존슨앤드존슨",
-    "UnitedHealth": "유나이티드헬스", "Visa": "비자", "ExxonMobil": "엑슨모빌",
-    "JPMorgan Chase": "JP모건", "Nvidia": "엔비디아", "Eli Lilly": "일라이릴리",
-    "Broadcom": "브로드컴", "Walmart": "월마트", "Micron Technology": "마이크론",
-}
-MCAP_LOGO = {
-    "NVDA": "nvidia.com", "GOOGL": "abc.xyz", "AAPL": "apple.com",
-    "MSFT": "microsoft.com", "AMZN": "amazon.com", "AVGO": "broadcom.com",
-    "META": "meta.com", "TSLA": "tesla.com", "BRK.B": "berkshirehathaway.com",
-    "MU": "micron.com", "SPCX": "spacex.com",
-}
-# 상장 시점. 이 날짜보다 앞선 열의 빈 칸은 "10위 밖"이 아니라 "상장 전"이다 —
-# 스페이스X처럼 최근에 상장한 기업을 옛날 칸까지 "밖이었다"고 적으면 거짓이 된다.
-#   스페이스X: 2026-06-12 나스닥 상장(SPCX), 공모가 $135. 출처 CNBC·Nasdaq·stockanalysis.
-MCAP_LISTED = {
-    "SPCX": datetime.date(2026, 6, 12),
-}
-# 상장은 했는데 그 시점 순위를 확인하지 못한 구간. 지어내지 않고 "확인 필요"로 둔다.
-#   스페이스X는 상장이 '26년 6월 12일이라 '26상 열(6/30 기준)에는 이미 올라와 있었지만,
-#   그 날짜의 미국 시총 TOP10 확정 자료를 못 찾아서 순위를 비워 둔다.
-MCAP_NODATA_BEFORE = {
-    "SPCX": datetime.date(2026, 7, 1),
-}
-# 기업 고유색은 index.html의 CSS 변수(--mcc-티커)로 정의돼 있다. 거기 없는
-# 기업이 새로 TOP10에 들어오면 아래 예비색을 순서대로 준다(밝음/어둠 겸용 중간톤).
-MCAP_EXTRA_COLORS = ["#0e7c9e", "#b8005c", "#5a6b00", "#7a4fd1"]
-# 미국 기업 순위이므로 외국 기업 ADR은 뺀다 (수기 표의 출처 companiesmarketcap
-# USA 목록과 기준을 맞추기 위함)
-MCAP_FOREIGN = {"TSM", "ASML", "ARM", "HSBC", "NVS", "RY", "SAP", "BABA", "TM",
-                "SHEL", "AZN", "SNY", "UL", "NVO"}
-
-# (열 이름, 그 열의 기준일, 추정 여부, [(영문명, 티커, 표시금액)])
-# 마지막 항목이 "현재"의 수기 예비값 — 자동 계산이 실패했을 때만 쓰인다.
-MCAP_HIST = [
-    ("'22상", "2022-06-30", True, [
-        ("Apple", "AAPL", "$2.27조"), ("Microsoft", "MSFT", "$1.94조"),
-        ("Alphabet", "GOOGL", "$1.39조"), ("Amazon", "AMZN", "$1.06조"),
-        ("Berkshire Hathaway", "BRK.B", "$682.6B"), ("Tesla", "TSLA", "$650.8B"),
-        ("Meta Platforms", "META", "$490.6B"), ("Johnson & Johnson", "JNJ", "$477.3B"),
-        ("UnitedHealth", "UNH", "$466.9B"), ("Visa", "V", "$428.8B")]),
-    ("'22하", "2022-12-30", False, [
-        ("Apple", "AAPL", "$2.067조"), ("Microsoft", "MSFT", "$1.788조"),
-        ("Alphabet", "GOOGL", "$1.148조"), ("Amazon", "AMZN", "$856.8B"),
-        ("Berkshire Hathaway", "BRK.B", "$678.7B"), ("UnitedHealth", "UNH", "$495.4B"),
-        ("Johnson & Johnson", "JNJ", "$461.8B"), ("ExxonMobil", "XOM", "$454.2B"),
-        ("Visa", "V", "$432.4B"), ("JPMorgan Chase", "JPM", "$393.3B")]),
-    ("'23상", "2023-06-30", True, [
-        ("Apple", "AAPL", "$3.0조 안팎"), ("Microsoft", "MSFT", "약 $2.3~2.4조"),
-        ("Alphabet", "GOOGL", "약 $1.5~1.6조"), ("Amazon", "AMZN", "약 $1.2~1.4조"),
-        ("Nvidia", "NVDA", "약 $1.0~1.05조"), ("Berkshire Hathaway", "BRK.B", "약 $750~780B"),
-        ("Meta Platforms", "META", "약 $700~750B"), ("Tesla", "TSLA", "약 $700~800B"),
-        ("Eli Lilly", "LLY", "약 $470~520B"), ("Visa", "V", "약 $470~500B")]),
-    ("'23하", "2023-12-29", False, [
-        ("Apple", "AAPL", "$2.994조"), ("Microsoft", "MSFT", "$2.795조"),
-        ("Alphabet", "GOOGL", "$1.764조"), ("Amazon", "AMZN", "$1.570조"),
-        ("Nvidia", "NVDA", "$1.223조"), ("Meta Platforms", "META", "$909.7B"),
-        ("Tesla", "TSLA", "$789.9B"), ("Berkshire Hathaway", "BRK.B", "$772.5B"),
-        ("Eli Lilly", "LLY", "$553.4B"), ("Visa", "V", "$525.7B")]),
-    ("'24상", "2024-06-28", True, [
-        ("Nvidia", "NVDA", "약 $3.3조"), ("Microsoft", "MSFT", "약 $3.3조"),
-        ("Apple", "AAPL", "약 $3.0~3.3조"), ("Alphabet", "GOOGL", "약 $2.1~2.2조"),
-        ("Amazon", "AMZN", "약 $1.9조"), ("Meta Platforms", "META", "약 $1.3조"),
-        ("Berkshire Hathaway", "BRK.B", "약 $900~950B"), ("Eli Lilly", "LLY", "약 $800~850B"),
-        ("Broadcom", "AVGO", "약 $700B"), ("Tesla", "TSLA", "약 $600~650B")]),
-    ("'24하", "2024-12-31", False, [
-        ("Apple", "AAPL", "$3.766조"), ("Nvidia", "NVDA", "$3.289조"),
-        ("Microsoft", "MSFT", "$3.134조"), ("Alphabet", "GOOGL", "$2.325조"),
-        ("Amazon", "AMZN", "$2.323조"), ("Meta Platforms", "META", "$1.484조"),
-        ("Tesla", "TSLA", "$1.299조"), ("Broadcom", "AVGO", "$1.087조"),
-        ("Berkshire Hathaway", "BRK.B", "$977.7B"), ("Walmart", "WMT", "$725.8B")]),
-    ("'25상", "2025-07-02", False, [
-        ("Nvidia", "NVDA", "$4.2조"), ("Microsoft", "MSFT", "$3.8조"),
-        ("Apple", "AAPL", "약 $3.1~3.2조"), ("Amazon", "AMZN", "$2.4조"),
-        ("Alphabet", "GOOGL", "약 $2.2~2.3조"), ("Meta Platforms", "META", "$1.8조"),
-        ("Broadcom", "AVGO", "$1.3조"), ("Tesla", "TSLA", "$1.1조"),
-        ("Berkshire Hathaway", "BRK.B", "$1.0조"), ("Eli Lilly", "LLY", "약 $694~731B")]),
-    ("'25하", "2025-12-31", False, [
-        ("Nvidia", "NVDA", "$4.533조"), ("Apple", "AAPL", "$4.017조"),
-        ("Alphabet", "GOOGL", "$3.777조"), ("Microsoft", "MSFT", "$3.594조"),
-        ("Amazon", "AMZN", "$2.468조"), ("Meta Platforms", "META", "$1.664조"),
-        ("Broadcom", "AVGO", "$1.641조"), ("Tesla", "TSLA", "$1.496조"),
-        ("Berkshire Hathaway", "BRK.B", "$1.084조"), ("Eli Lilly", "LLY", "$961.9B")]),
-    ("'26상", "2026-06-30", True, [
-        ("Nvidia", "NVDA", "약 $5.0~5.2조"), ("Alphabet", "GOOGL", "약 $4.2~4.5조"),
-        ("Apple", "AAPL", "약 $3.9~4.4조"), ("Microsoft", "MSFT", "약 $2.9~3.2조"),
-        ("Amazon", "AMZN", "약 $2.6~2.8조"), ("Broadcom", "AVGO", "약 $1.8~1.9조"),
-        ("Meta Platforms", "META", "약 $1.5~1.7조"), ("Tesla", "TSLA", "약 $1.4~1.5조"),
-        ("Berkshire Hathaway", "BRK.B", "약 $1.0~1.1조"), ("Eli Lilly", "LLY", "약 $1.0조")]),
-    ("현재", "2026-08-04", False, [
-        ("Nvidia", "NVDA", "$5.133조"), ("Alphabet", "GOOGL", "$4.590조"),
-        ("Apple", "AAPL", "$4.515조"), ("Microsoft", "MSFT", "$3.659조"),
-        ("Amazon", "AMZN", "$2.992조"), ("Broadcom", "AVGO", "$1.989조"),
-        ("Meta Platforms", "META", "$1.497조"), ("Tesla", "TSLA", "$1.292조"),
-        ("Berkshire Hathaway", "BRK.B", "$1.115조"), ("Micron Technology", "MU", "$1.008조")]),
-]
-
-# 차트 위에 표시할 사건들. 날짜가 확실한 것만 넣는다(월 단위 표기).
-# ChatGPT 출시일과 애플 $3조 첫 마감(2023-06-30), 엔비디아의 MSFT 추월(2024-06-18,
-# CNBC)은 수기 표의 출처에서 이미 검증된 날짜다. 엔비디아 $1조는 2023년 5월 말
-# 장중 첫 돌파라 월 단위로만 적는다.
-MCAP_EVENTS = [
-    ("2022-11-30", "ChatGPT 출시", "AI 랠리의 출발점이 된 날"),
-    ("2023-05-30", "엔비디아 $1조", "2023년 5월 말 시총 $1조 첫 돌파(장중)"),
-    ("2023-06-30", "애플 $3조", "시총 $3조에 처음으로 마감"),
-    ("2024-06-18", "엔비디아 1위", "마이크로소프트를 제치고 시총 1위(CNBC)"),
-]
+# 시총순위 탭은 2026-08-31에 없앴다(영재님 요청). 반기별 순위 히트맵과 그 수기
+# 데이터(MCAP_HIST·MCAP_EVENTS 등)는 이 커밋 이전 기록에 그대로 남아 있으니,
+# 되살릴 일이 생기면 git 이력에서 꺼내면 된다.
+# 시가총액 자체는 계속 받는다 — 카드의 순위 뱃지와 펼침 표의 시가총액 칸에 쓴다.
 
 
-def mcap_fmt(cap):
-    return f"${cap / 1e12:.3f}조" if cap >= 1e12 else f"${cap / 1e9:.1f}B"
-
-
-def mcap_live_rows(mcaps):
-    """야후 시가총액으로 현재 TOP10을 만든다. 못 미더우면 None.
-
-    확보율은 반드시 "미국 종목만" 세야 한다. mcaps에는 한국 종목도 같이 들어
-    있어서 전체 개수로 재면, 한국 20개가 다 들어오고 미국이 10개만 성공해도
-    문턱을 넘는다. 그러면 애플·알파벳이 통째로 빠진 순위가 "자동 계산"이라는
-    설명을 달고 나간다.
-    """
-    us30 = {sym: (name, label) for name, label, _, sym, _ in SECTIONS["us30"]}
-    if not mcaps:
+def mcap_fmt(cap, cur="USD"):
+    """시가총액을 읽기 쉬운 단위로. 원화와 달러를 한 칸에 섞지 않도록 통화를 받는다."""
+    if cap is None or (isinstance(cap, float) and math.isnan(cap)) or cap <= 0:
         return None
-    have_us = [c for sym, c in mcaps.items() if sym in us30]
-    if len(have_us) < len(us30) * 0.8:
-        print(f"  [warn] 시총순위: 미국 시가총액이 {len(have_us)}/{len(us30)}개뿐이라 "
-              "자동 순위를 쓰지 않고 수기 예비값으로 그립니다", file=sys.stderr)
-        return None
-    ranked = []
-    for sym, cap in sorted(mcaps.items(), key=lambda kv: -kv[1]):
-        if sym not in us30:        # 한국 종목 시가총액도 같이 받아오므로 걸러낸다
-            continue
-        name, label = us30[sym]
-        if label in MCAP_FOREIGN:
-            continue
-        ranked.append((name, label, mcap_fmt(cap)))
-        if len(ranked) == 10:
-            break
-    # 1위가 $1조도 안 되면 시가총액을 잘못 받은 것이다
-    if len(ranked) < 10 or max(have_us) < 1e12:
-        return None
-    return ranked
+    if cur == "KRW":
+        return f"{cap / 1e12:.1f}조원" if cap >= 1e12 else f"{cap / 1e8:,.0f}억원"
+    return f"${cap / 1e12:.3f}조" if cap >= 1e12 else f"${cap / 1e9:,.1f}B"
 
 
-def mcap_parse(s):
-    """표시 문자열("$5.133조", "약 $700~750B")에서 막대 길이용 숫자를 뽑는다.
-    범위는 중간값. 못 읽으면 None → 막대 없이 글자만 나온다."""
-    nums = re.findall(r"[\d.]+", s)
-    if not nums:
-        return None
-    v = (float(nums[0]) + float(nums[1])) / 2 if ("~" in s and len(nums) >= 2) else float(nums[0])
-    return v * (1e9 if "B" in s else 1e12)
+def mcap_cell(cap, cur, is_etf=False):
+    """펼친 표의 시가총액 칸. 정렬이 단위 글자에 속지 않도록 원값을 data-v에 심는다."""
+    if is_etf:
+        return na_cell("ETF는 시가총액이 아니라 순자산(AUM)으로 크기를 잽니다")
+    t = mcap_fmt(cap, cur)
+    if t is None:
+        return '<td class="needchk">확인 필요</td>'
+    return f'<td data-v="{cap:.0f}" title="야후 파이낸스 기준">{t}</td>'
 
 
-def build_mcap(mcaps=None):
-    """시총순위 <!--MCAP--> 구간 — 순위 히트맵 그리드.
-
-    행이 기업, 열이 반기. 칸의 숫자가 그 시점 순위이고 상위권일수록 진한 보라색이다
-    (색 단계는 index.html의 .mg-c.r1~r10 클래스에 정의). 밀려난 기업은 회색 계열.
-    선을 다 걷어낸 이유: 열일곱 개의 선이 교차하는 그림보다, 숫자가 박힌 바둑판이
-    "누가 언제 몇 위였나"를 훨씬 빨리 읽게 해준다(2026-08-09 영재님 선택).
-    """
-    periods = [(t, d, a, [(MCAP_KO.get(n, n), tk, cap) for n, tk, cap in rows])
-               for t, d, a, rows in MCAP_HIST]
-    live = mcap_live_rows(mcaps)
-    if live:
-        asof = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
-        periods[-1] = ("현재", datetime.datetime.now(KST).date().isoformat(), False, live)
-        cur_note = (f'"현재" 열은 야후 파이낸스 시가총액으로 자동 계산({asof} KST 갱신)'
-                    "이라, 출처가 다른 과거 열과 집계 기준이 조금 다를 수 있습니다.")
-    else:
-        cur_note = f'"현재" 열은 {MCAP_HIST[-1][1]} 기준 수기값입니다(자동 계산 실패 시 예비값).'
-        if mcaps is not None:
-            print(f"  [warn] 시총순위: 시가총액 {len(mcaps)}개뿐이라 수기 예비값 사용", file=sys.stderr)
-
-    n = len(periods)
-    last = n - 1
-    esc = lambda s: re.sub(r"&(?!amp;|lt;|gt;|#)", "&amp;", s).replace("<", "&lt;")
-
-    comp, ko_by_tk = {}, {}
-    for i, (_, _, _, rows) in enumerate(periods):
-        for r, (ko, tk, cap) in enumerate(rows, 1):
-            comp.setdefault(tk, {})[i] = (r, cap)
-            ko_by_tk[tk] = ko
-    approx = {i for i, (_, _, a, _) in enumerate(periods) if a}
-
-    cur = sorted((tk for tk in comp if last in comp[tk]), key=lambda tk: comp[tk][last][0])
-    out = sorted((tk for tk in comp if last not in comp[tk]),
-                 key=lambda tk: (-max(comp[tk]), min(r for r, _ in comp[tk].values())))
-
-    caps_now = {tk: mcap_parse(comp[tk][last][1]) for tk in cur}
-    max_cap = max((v for v in caps_now.values() if v), default=None)
-
-    # 사건 마커: 열(반기 말 날짜) 사이 위치를 비율로 계산해 열 영역 위에 얹는다
-    pdates = [datetime.date.fromisoformat(d) for _, d, _, _ in periods]
-    ev_html = []
-    for k, (dstr, short, detail) in enumerate(MCAP_EVENTS):
-        d = datetime.date.fromisoformat(dstr)
-        if d <= pdates[0] or d >= pdates[-1]:
-            continue
-        i = max(j for j in range(n - 1) if pdates[j] <= d)
-        frac = (d - pdates[i]).days / max(1, (pdates[i + 1] - pdates[i]).days)
-        left = (i + frac + 0.5) / n * 100
-        ev_html.append(f'<span class="mg-ev{" alt" if k % 2 else ""}" style="left:{left:.2f}%" '
-                       f'title="{dstr} — {esc(detail)}">{esc(short)}</span>')
-
-    head = ['<div class="mg-corner">기업</div>']
-    for i, (t, d, a, _) in enumerate(periods):
-        cls = "mg-h mg-hnow" if i == last else ("mg-h mg-hest" if a else "mg-h")
-        tip = f' title="{d} 기준{" · 추정" if a else ""}"'
-        head.append(f'<div class="{cls}"{tip}>{t}</div>')
-    head.append('<div class="mg-hbar">현재 시총</div>')
-
-    def row_html(tk, is_out):
-        ko, pts = ko_by_tk[tk], comp[tk]
-        cells = []
-        for i in range(n):
-            if i in pts:
-                r, cap = pts[i]
-                pre = "o" if is_out else "r"
-                est = " (추정)" if i in approx else ""
-                cells.append(f'<div class="mg-c {pre}{r}" title="{esc(ko)} · {periods[i][0]} · '
-                             f'{r}위 · {esc(cap)}{est}">{r}</div>')
-            elif tk in MCAP_LISTED and pdates[i] < MCAP_LISTED[tk]:
-                cells.append('<div class="mg-c mg-empty" title="아직 상장 전 '
-                             f'({MCAP_LISTED[tk].isoformat()} 상장)">–</div>')
-            elif tk in MCAP_NODATA_BEFORE and pdates[i] < MCAP_NODATA_BEFORE[tk]:
-                cells.append('<div class="mg-c mg-empty mg-unk" title="상장 직후라 이 시점 '
-                             '순위를 확인하지 못했습니다 (지어내지 않고 비워 둠)">?</div>')
-            else:
-                cells.append('<div class="mg-c mg-empty" title="10위 밖">·</div>')
-        logo = (f'<img class="supp-logo" src="https://logo.clearbit.com/{MCAP_LOGO[tk]}" '
-                'onerror="this.style.display=\'none\'">') if tk in MCAP_LOGO else ""
-        name = (f'<div class="mg-name{" out" if is_out else ""}">{logo}{esc(ko)}'
-                f'<span class="mg-tk">{esc(tk)}</span></div>')
-        if is_out:
-            seen = max(pts)
-            bar = f'<div class="mg-bar out">{periods[seen][0]}까지 <span class="mg-outtag">이탈</span></div>'
-        else:
-            r_now, cap = pts[last]
-            prev = pts.get(last - 2)
-            if prev is None:
-                delta = '<span class="mg-new">신규</span>'
-            elif prev[0] != r_now:
-                d = prev[0] - r_now
-                delta = (f'<span class="mg-up">▲{d}</span>' if d > 0 else
-                         f'<span class="mg-down">▼{-d}</span>')
-            else:
-                delta = '<span class="mg-flat">—</span>'
-            v = caps_now.get(tk)
-            w = f' style="width:{v / max_cap * 100:.1f}%"' if (v and max_cap) else ' style="width:0"'
-            bar = f'<div class="mg-bar"><i{w}></i><b>{esc(cap)}</b>{delta}</div>'
-        return name + "".join(cells) + bar
-
-    rows_html = "".join(row_html(tk, False) for tk in cur)
-    rows_out = "".join(row_html(tk, True) for tk in out)
-
-    grid = (f'<div class="mg" style="grid-template-columns: 175px repeat({n}, 1fr) 185px;">'
-            f'<div class="mg-events">{"".join(ev_html)}</div>'
-            + "".join(head) + rows_html
-            + '<div class="mg-divider">10위 밖으로 밀려난 기업 (회색 = 당시 순위)</div>'
-            + rows_out + "</div>")
-
-    return (
-        '\n      <div class="card-note">행이 기업, 열이 반기입니다. 칸의 숫자가 그 시점 순위이고 '
-        '<b>진한 보라색일수록 상위권</b>, 회색 행은 지금 10위 밖으로 밀려난 기업입니다. '
-        '·은 그 시점에 10위 밖이었다는 뜻이고, 빈 순위를 지어내 채우지 않았습니다. '
-        "<b class=\"mc-estword\">노란 열 제목</b>('22상·'23상·'24상·'26상)은 확정 자료가 없어 "
-        '가까운 날짜 값을 종합한 <b>추정</b>이라 순위는 대체로 맞지만 금액은 범위로 봐주세요. '
-        '위쪽 작은 글씨는 주요 사건(마우스를 올리면 설명), 칸에 마우스를 올리면 그 시점 '
-        '시가총액이 나옵니다. 오른쪽 막대는 현재 시가총액 크기이고 '
-        '<span class="mg-up">▲</span><span class="mg-down">▼</span>는 1년 전 대비 순위 변화입니다. '
-        f'{cur_note}</div>\n'
-        f'      <div class="mg-scroll">{grid}</div>\n      '
-    )
 
 # ------------------------------------------------------ 미 국채 금리 / 장단기차
 #
@@ -2511,48 +2288,65 @@ SECTOR_OF = {
     "NVDA": "반도체", "TSM": "반도체", "AVGO": "반도체", "AMD": "반도체",
     "ASML": "반도체", "MU": "반도체", "INTC": "반도체", "AMAT": "반도체",
     "LRCX": "반도체", "ARM": "반도체", "KLAC": "반도체", "SNDK": "반도체",
-    "TXN": "반도체", "005930.KS": "반도체", "000660.KS": "반도체",
+    "TXN": "반도체", "MRVL": "반도체", "QCOM": "반도체", "ADI": "반도체",
+    "005930.KS": "반도체", "000660.KS": "반도체",
     "009150.KS": "반도체",
     # 인터넷·소프트웨어 (스트리밍인 넷플릭스도 여기에 둔다 — 혼자 "미디어" 칸을
     # 만들면 그 칸 평균이 곧 넷플릭스 한 종목이라 업종 지표가 되지 못한다)
     "MSFT": "인터넷·소프트웨어", "GOOGL": "인터넷·소프트웨어",
     "META": "인터넷·소프트웨어", "ORCL": "인터넷·소프트웨어",
     "PLTR": "인터넷·소프트웨어", "CRWD": "인터넷·소프트웨어",
-    "IBM": "인터넷·소프트웨어", "NFLX": "인터넷·소프트웨어",
+    "IBM": "인터넷·소프트웨어", "PANW": "인터넷·소프트웨어",
+    "CRM": "인터넷·소프트웨어",
     "035420.KS": "인터넷·소프트웨어", "402340.KS": "인터넷·소프트웨어",
+    # 통신·미디어 — 2026-08-31 TOP75 확장으로 통신 3사와 디즈니가 들어와 되살렸다.
+    # 넷플릭스도 디즈니와 같은 성격이라 여기로 옮긴다(전에는 혼자라 소프트웨어에 뒀다).
+    "VZ": "통신·미디어", "TMUS": "통신·미디어", "T": "통신·미디어",
+    "DIS": "통신·미디어", "NFLX": "통신·미디어",
+    # 산업재 — 철도·건설기계·광업처럼 "물건을 나르고 캐고 만드는" 쪽.
+    # 캐터필러는 그동안 항공우주·방산에 잘못 들어가 있었다.
+    "UNP": "산업재", "CAT": "산업재", "SCCO": "산업재",
     # 하드웨어·네트워크
     "AAPL": "하드웨어·네트워크", "CSCO": "하드웨어·네트워크",
     "DELL": "하드웨어·네트워크", "ANET": "하드웨어·네트워크",
+    "APH": "하드웨어·네트워크",
     # 금융
     "BRK-B": "금융", "JPM": "금융", "V": "금융", "MA": "금융", "BAC": "금융",
     "HSBC": "금융", "MS": "금융", "GS": "금융", "RY": "금융", "WFC": "금융",
-    "C": "금융", "AXP": "금융", "105560.KS": "금융", "055550.KS": "금융",
+    "C": "금융", "AXP": "금융", "SCHW": "금융", "BLK": "금융", "BX": "금융",
+    # 웰타워는 헬스케어 시설 리츠다. 부동산 묶음을 하나 더 만들 만큼 종목이 없어
+    # 금융에 둔다(리츠는 결국 금융상품이라 아주 틀린 자리도 아니다).
+    "WELL": "금융",
+    "105560.KS": "금융", "055550.KS": "금융",
     "086790.KS": "금융", "032830.KS": "금융", "034730.KS": "금융",
     # 헬스케어·제약
     "LLY": "헬스케어·제약", "JNJ": "헬스케어·제약", "ABBV": "헬스케어·제약",
     "UNH": "헬스케어·제약", "MRK": "헬스케어·제약", "NVS": "헬스케어·제약",
     "AMGN": "헬스케어·제약", "TMO": "헬스케어·제약",
+    "ABT": "헬스케어·제약", "GILD": "헬스케어·제약",
     "207940.KS": "헬스케어·제약", "068270.KS": "헬스케어·제약",
     # 소비재·유통
     "AMZN": "소비재·유통", "WMT": "소비재·유통", "COST": "소비재·유통",
     "KO": "소비재·유통", "PG": "소비재·유통", "HD": "소비재·유통",
-    "PM": "소비재·유통", "028260.KS": "소비재·유통",
+    "PM": "소비재·유통", "PEP": "소비재·유통", "MCD": "소비재·유통",
+    "028260.KS": "소비재·유통",
     # 자동차·2차전지
     "TSLA": "자동차·2차전지", "005380.KS": "자동차·2차전지",
     "000270.KS": "자동차·2차전지", "012330.KS": "자동차·2차전지",
     "373220.KS": "자동차·2차전지",
     # 에너지·전력
     "XOM": "에너지·전력", "CVX": "에너지·전력", "GEV": "에너지·전력",
+    "NEE": "에너지·전력",
     "034020.KS": "에너지·전력",
     # 항공우주·방산·산업재
     "SPCX": "항공우주·방산", "GE": "항공우주·방산", "RTX": "항공우주·방산",
-    "012450.KS": "항공우주·방산", "CAT": "항공우주·방산",
+    "012450.KS": "항공우주·방산",
     "329180.KS": "항공우주·방산",
 }
 # 화면에 놓을 순서 (익숙한 순서를 고정해 둬야 매일 자리가 안 바뀐다)
-SECTOR_ORDER = ["반도체", "인터넷·소프트웨어", "하드웨어·네트워크",
+SECTOR_ORDER = ["반도체", "인터넷·소프트웨어", "하드웨어·네트워크", "통신·미디어",
                 "금융", "헬스케어·제약", "소비재·유통", "자동차·2차전지",
-                "에너지·전력", "항공우주·방산"]
+                "에너지·전력", "산업재", "항공우주·방산"]
 
 
 def check_tables():
@@ -2687,9 +2481,40 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "2.4"
+VERSION = "2.7"
 
 CHANGELOG = [
+    ("2.7", "2026-08-31", [
+        ("추가", "미국 종목을 <b>TOP75로 넓혔습니다</b>(21종목 추가). 마벨·퀄컴·아나로그디바이스, "
+                "펩시코·맥도날드·디즈니, 버라이즌·티모바일·AT&amp;T, 찰스슈왑·블랙록·블랙스톤 등이 "
+                "들어왔습니다. <b>로빈후드는 미국 132위라 아직 들어오지 않습니다.</b>"),
+        ("고침", "<b>팔로알토네트웍스(미국 39위)가 그동안 빠져 있었습니다.</b> 55위 종목은 있는데 "
+                "39위가 없던 상태라, 확장과 별개로 메웠습니다."),
+        ("고침", "캐터필러가 <b>항공우주·방산</b>으로 잘못 분류돼 있어 새로 만든 <b>산업재</b>로 "
+                "옮겼습니다(유니온퍼시픽·서던코퍼와 같은 묶음)."),
+        ("추가", "업종에 <b>통신·미디어</b>(버라이즌·티모바일·AT&amp;T·디즈니·넷플릭스)와 "
+                "<b>산업재</b>를 새로 만들었습니다. 넷플릭스는 전에 혼자라 소프트웨어에 뒀는데 "
+                "디즈니가 들어오면서 제자리를 찾았습니다."),
+        ("정리", "TSMC·ASML·HSBC·노바티스·로열뱅크·ARM처럼 <b>본사가 미국이 아닌 기업</b>에 "
+                "\"해외\" 표시를 붙였습니다 — 왼쪽 순위 뱃지가 미국 기업 순위가 아니라 "
+                "이 목록 안의 시가총액 순서라는 걸 구분하기 위해서입니다."),
+    ]),
+    ("2.6", "2026-08-31", [
+        ("고침", "<b>야간모드에서 상단 티커 띠와 S&amp;P500 히트맵 글씨가 거의 안 보였습니다.</b> "
+                "트레이딩뷰 위젯은 만들 때 색 테마를 한 번 정해 넣는 구조라 나중에 어둡게 "
+                "바꿔도 따라오지 않았는데, 밝은 테마로 굳어 있어서 어두운 배경 위에 "
+                "어두운 글씨가 얹혔습니다. 이제 위젯을 붙일 때 현재 테마를 넣고, "
+                "테마를 바꾸면 다시 붙입니다(기기 설정만 어둡게 해둔 경우도 포함)."),
+    ]),
+    ("2.5", "2026-08-31", [
+        ("정리", "<b>시총순위 탭을 없앴습니다.</b> 반기별 순위 히트맵과 그 수기 데이터는 "
+                "저장소 이력에 남아 있어 되살릴 수 있습니다."),
+        ("추가", "대신 <b>시가총액을 종목 카드 안</b>으로 옮겼습니다 — 카드를 펼치면 "
+                "\"밸류에이션 · 재무\" 첫 줄에 금액이 나옵니다(미국은 달러, 한국은 원). "
+                "정렬 기준으로도 고를 수 있습니다."),
+        ("추가", "<b>탭 순서를 바꿀 수 있습니다.</b> 탭 줄 오른쪽 \"↕ 순서\"를 누르고 "
+                "▲▼로 옮기면 이 브라우저에 기억됩니다."),
+    ]),
     ("2.4", "2026-08-17", [
         ("추가", "반도체 탭에 <b>낸드 점유율</b>(삼성·SK하이닉스·마이크론·키옥시아·샌디스크·YMTC)과 "
                 "<b>낸드 계약가 추이</b> 카드를 넣었습니다. ’26 2분기 매출 점유율은 아직 발표 전이라 "
@@ -2966,8 +2791,8 @@ def main(html_path):
     with open(html_path, encoding="utf-8") as f:
         html = f.read()
 
-    # 시가총액: 카드의 순위 뱃지와 시총순위 탭에 함께 쓴다. 실패해도 죽지 않는다
-    # — 순위 뱃지는 안 붙고, 시총순위 탭은 수기 예비값으로 그려진다.
+    # 시가총액: 카드의 순위 뱃지와 펼침 표의 시가총액 칸에 쓴다.
+    # 실패해도 죽지 않는다 — 순위 뱃지가 안 붙고 그 칸만 "확인 필요"가 된다.
     print("fetching market caps & PER...")
     mcaps, pers = {}, {}
     for sec in ("us30", "kr10"):
@@ -2998,7 +2823,7 @@ def main(html_path):
             make_row(*row, closes, aths,
                      ETF_DESC.get(row[0]) if section == "etf" else None,
                      ETF_TAG.get(row[0]) if section == "etf" else None,
-                     rank, vols, pers, section == "etf")
+                     rank, vols, pers, section == "etf", mcaps)
             for row, rank in rows)
         start = f"<!--SUPP:{section}:START-->"
         end = f"<!--SUPP:{section}:END-->"
@@ -3042,7 +2867,6 @@ def main(html_path):
     print("fetching big-tech financials...")
     html, fin_ok = splice(html, "FIN", build_fin())
 
-    html, mcap_ok = splice(html, "MCAP", build_mcap(mcaps))
 
     # 화면에는 "스크립트를 돌린 날"이 아니라 "숫자가 어느 거래일 종가인지"를 적는다.
     # 예전에는 실행 날짜만 찍었는데, 한국 아침에 보면 미국 숫자는 아직 이틀 전 종가인데
@@ -3070,7 +2894,6 @@ def main(html_path):
           f"fng={'ok' if fng_ok else 'MARKER MISSING'}, "
           f"yield={'ok' if yld_ok else 'MARKER MISSING'}, "
           f"fin={'ok' if fin_ok else 'MARKER MISSING'}, "
-          f"mcap={'ok' if mcap_ok else 'MARKER MISSING'}({len(mcaps)}종목), "
           f"sig={'ok' if sig_ok else 'MARKER MISSING'}, "
           f"sector={'ok' if sec_ok else 'MARKER MISSING'}, "
           f"ver=v{VERSION}{'' if ver_ok else '(MARKER MISSING)'}, "
