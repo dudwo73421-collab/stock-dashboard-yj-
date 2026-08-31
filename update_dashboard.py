@@ -992,14 +992,24 @@ def fetch_fin(ticker):
         raise ValueError(f"매출 항목 없음 (있는 항목 예: {list(inc.index)[:3]})")
     if opi is None or opi.empty:
         raise ValueError("영업이익 항목 없음")
+    # 예전에는 매출과 영업이익이 "둘 다" 있는 분기만 남겼는데, 야후가 새 분기를
+    # 올릴 때 매출을 먼저 넣고 영업이익을 나중에 채우는 일이 있다. 그러면 갓 발표된
+    # 분기가 통째로 사라져서, 화면에는 아무 표시 없이 한 분기 뒤처진 값이 나온다
+    # (2026-08-31 영재님이 아마존에서 발견). 이제는 매출이 있으면 분기를 살리고
+    # 영업이익만 None으로 둬서 그 칸만 "확인 필요"가 되게 한다.
     out = []
-    for ts in sorted(set(rev.index) & set(opi.index)):
-        r, o = float(rev[ts]), float(opi[ts])
+    for ts in sorted(rev.index):
+        r = float(rev[ts])
         if r <= 0:
             continue          # 매출이 없으면 이익률을 계산할 수 없다
+        o = float(opi[ts]) if ts in opi.index else None
         out.append((quarter_label(ts), r, o))
     if not out:
-        raise ValueError("매출·영업이익이 같이 있는 분기가 없음")
+        raise ValueError("매출이 있는 분기가 없음")
+    dropped = [q for q, _, o in out[-FIN_QUARTERS:] if o is None]
+    if dropped:
+        print(f"  [warn] {ticker}: 영업이익이 아직 없는 분기 {dropped} — "
+              "매출만 표시하고 이익 칸은 확인 필요로 둡니다", file=sys.stderr)
     return out[-FIN_QUARTERS:]
 
 
@@ -1115,14 +1125,28 @@ def yoy(vals):
     return (now / prev - 1) * 100
 
 
-def fin_item(name, ticker, logo, series, cash):
-    """cash는 fetch_cash 결과((CAPEX목록, FCF목록)) 또는 None."""
+def lag_chip(newest):
+    """야후에 아직 그 분기 재무제표가 안 올라왔다는 표시."""
+    tip = (f"회사는 이미 발표했지만 야후 파이낸스에 {newest} 재무제표가 아직 "
+           "올라오지 않았습니다. 올라오면 다음 자동 갱신 때 저절로 채워집니다.")
+    return f'<span class="fin-lag" title="{tip}">{newest} 미반영</span>'
+
+
+def fin_item(name, ticker, logo, series, cash, newest=None):
+    """cash는 fetch_cash 결과((CAPEX목록, FCF목록)) 또는 None.
+
+    newest가 들어오면 "다른 카드는 그 분기까지 있는데 이 카드만 뒤처졌다"는 뜻이라
+    제목 옆에 표시를 붙인다.
+    """
     labs = [q for q, _, _ in series]
     revs = [r for _, r, _ in series]
     ops = [o for _, _, o in series]
-    mgs = [o / r * 100 for _, r, o in series]
+    # 영업이익이 아직 안 올라온 분기는 이익률도 낼 수 없다 — 0으로 채우지 않는다
+    mgs = [(o / r * 100) if o is not None else None for _, r, o in series]
 
-    mg_pp = (mgs[-1] - mgs[-5]) if len(mgs) >= 5 else None
+    mg_pp = (mgs[-1] - mgs[-5]
+             if len(mgs) >= 5 and mgs[-1] is not None and mgs[-5] is not None
+             else None)
 
     # CAPEX는 현금흐름표라 분기 수가 손익계산서와 다를 수 있다.
     # 분기 라벨을 열쇠로 맞춰 붙이고, 없는 분기는 None으로 둔다(0으로 채우지 않는다).
@@ -1145,7 +1169,8 @@ def fin_item(name, ticker, logo, series, cash):
         f'            <summary class="fin-head">{logo_html}{name}'
         f'<span class="supp-ticker">{ticker}</span>'
         f'<span class="fin-q">{labs[-1]} 기준</span>'
-        '<span class="fin-more">자세히 보기</span></summary>\n'
+        + (lag_chip(newest) if newest else "")
+        + '<span class="fin-more">자세히 보기</span></summary>\n'
         '            <div class="fin-body">\n'
         '            <div class="fin-metrics">\n'
         + fin_metric("매출", revs, labs, bil, pct_span(yoy(revs))) + "\n"
@@ -1458,7 +1483,14 @@ def earncall_block(ticker, labs):
 
 
 def build_fin():
-    items, ok, cok = [], 0, 0
+    """빅테크 분기 실적 카드.
+
+    야후는 회사가 실적을 발표한 뒤에도 분기 재무제표를 며칠~몇 주 늦게 올린다.
+    그래서 어떤 카드만 한 분기 뒤처지는 일이 생기는데, 작은 글씨의 "26 2Q 기준"만
+    보고는 알아채기 어렵다(2026-08-31 영재님이 엔비디아에서 발견). 그래서 먼저
+    전부 받아본 뒤 가장 최신 분기를 구하고, 그보다 뒤처진 카드에는 표시를 붙인다.
+    """
+    fetched, ok, cok = [], 0, 0
     for name, ticker, logo in BIGTECH:
         # 현금흐름표는 따로 받는다. 이쪽이 실패해도 매출·영업이익은 그대로 보여준다.
         try:
@@ -1468,11 +1500,27 @@ def build_fin():
             print(f"  [warn] 현금흐름 {ticker}: {e}", file=sys.stderr)
             cash = None
         try:
-            items.append(fin_item(name, ticker, logo, fetch_fin(ticker), cash))
+            fetched.append((name, ticker, logo, fetch_fin(ticker), cash))
             ok += 1
         except Exception as e:
             print(f"  [warn] 재무 {ticker}: {e}", file=sys.stderr)
+            fetched.append((name, ticker, logo, None, None))
+
+    # 분기 라벨("26 2Q")은 글자 그대로 정렬해도 시간 순서가 맞는다
+    lasts = [ser[-1][0] for *_x, ser, _c in fetched if ser]
+    newest = max(lasts) if lasts else None
+    behind = [t for _n, t, _l, ser, _c in fetched if ser and ser[-1][0] != newest]
+    if behind:
+        print(f"  [warn] 야후에 최신 분기({newest})가 아직 없는 종목: {', '.join(behind)}",
+              file=sys.stderr)
+
+    items = []
+    for name, ticker, logo, ser, cash in fetched:
+        if ser is None:
             items.append(fin_item_fail(name, ticker, logo, "분기 손익계산서를 못 받아왔습니다"))
+        else:
+            items.append(fin_item(name, ticker, logo, ser, cash,
+                                  newest if ser[-1][0] != newest else None))
     print(f"  fin {ok}/{len(BIGTECH)} (cash {cok}/{len(BIGTECH)})")
     return '        <div class="fin-grid">\n' + "\n".join(items) + "\n        </div>"
 
@@ -2481,9 +2529,28 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "2.7"
+VERSION = "2.9"
 
 CHANGELOG = [
+    ("2.9", "2026-08-31", [
+        ("고침", "<b>상단 티커 띠가 여러 겹으로 겹쳐 보이고 글씨가 안 보이던 문제.</b> "
+                "트레이딩뷰는 시세 화면(iframe)을 제가 비우던 칸 <b>바깥</b>에 붙이는데, "
+                "v2.6에서 테마 전환용으로 다시 붙이는 코드를 넣으면서 이전 것을 못 지웠습니다. "
+                "그래서 테마를 바꿀 때마다 위젯이 한 겹씩 쌓였고, 밝은 테마로 그려진 겹이 "
+                "밑에 남아 어두운 글씨가 비쳐 보였습니다. 이제 컨테이너를 통째로 비우고 "
+                "다시 만듭니다 — 테마를 다섯 번 바꿔도 하나만 남는 것을 확인했습니다."),
+        ("정리", "티커 띠 높이를 고정하고 넘치는 부분을 잘라내, 위젯이 잘못되더라도 "
+                "아래 탭 줄을 덮지 않게 했습니다."),
+    ]),
+    ("2.8", "2026-08-31", [
+        ("고침", "빅테크분석에서 <b>매출은 올라왔는데 영업이익이 아직 없는 분기가 통째로 "
+                "사라지고 있었습니다.</b> 야후가 새 분기를 넣을 때 항목을 한꺼번에 채우지 "
+                "않는데, 예전 코드는 둘 다 있는 분기만 남겨서 갓 발표된 분기가 아무 표시 "
+                "없이 빠졌습니다. 이제 매출이 있으면 분기를 살리고 이익 칸만 \"확인 필요\"로 둡니다."),
+        ("추가", "어떤 카드가 다른 카드보다 뒤처지면 제목 옆에 <b>\"26 3Q 미반영\"</b> 같은 "
+                "표시가 붙습니다. 회사는 발표했는데 야후에 아직 안 올라온 상태를 구분하기 "
+                "위해서입니다 — 엔비디아처럼 발표 직후 며칠간 생기는 일입니다."),
+    ]),
     ("2.7", "2026-08-31", [
         ("추가", "미국 종목을 <b>TOP75로 넓혔습니다</b>(21종목 추가). 마벨·퀄컴·아나로그디바이스, "
                 "펩시코·맥도날드·디즈니, 버라이즌·티모바일·AT&amp;T, 찰스슈왑·블랙록·블랙스톤 등이 "
