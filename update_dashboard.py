@@ -1571,6 +1571,12 @@ INDEXES = [
 
 FRED_SYMS = [sym for _, _, sym, _, _ in INDEXES if sym.startswith("FRED:")]
 
+# 위 목록에서 "그 시장의 주식 지수"만 따로 뽑아 둔다. 개별 종목과 날짜가 맞는지
+# 대조하는 데 쓴다. 환율·원유·금·비트코인은 24시간 돌아가서 늘 오늘 날짜가 찍히므로
+# 대조 대상이 아니다. VIX도 지수지만 주가 지수가 아니라서 뺐다.
+US_IDX_SYMS = ["^GSPC", "^IXIC", "^DJI"]
+KR_IDX_SYMS = ["^KS11", "^KQ11"]
+
 
 def _redact(msg):
     """로그에 API 키가 찍히지 않게 지운다. (깃허브도 시크릿을 가려주지만 이중으로)"""
@@ -2551,9 +2557,17 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "3.1"
+VERSION = "3.2"
 
 CHANGELOG = [
+    ("3.2", "2026-09-19", [
+        ("고침", "<b>한 화면에 이틀치 숫자가 섞이던 문제.</b> 9월 19일 토요일 오전 "
+                "화면이 실제로 그랬습니다 — 엔비디아 카드는 목요일치(+2.54%)인데 "
+                "나스닥 카드는 금요일치(+0.39%)였습니다. 야후가 개별 종목의 마지막 "
+                "일봉만 빼놓고 지수는 그대로 주는 바람에 생긴 일입니다. 이제 지수와 "
+                "개별 종목의 마지막 거래일이 어긋나면 그 실행은 화면을 건드리지 "
+                "않습니다."),
+    ]),
     ("3.1", "2026-09-14", [
         ("고침", "<b>토요일 오전에 금요일 미국 종가가 목요일 것으로 되돌아가던 문제.</b> "
                 "야후가 미국장 마감 뒤 몇 시간(미 동부 20시~자정 무렵) 동안 방금 끝난 "
@@ -2850,19 +2864,30 @@ def main(html_path):
     # 다음 실행(2시간 뒤)이면 야후가 복구돼 있어서 정상적으로 올라간다.
     with open(html_path, encoding="utf-8") as f:
         prev_html = f.read()
-    backward = []
-    for mk, syms in (("미국", [r[3] for r in SECTIONS.get("us30", [])]),
-                     ("한국", [r[3] for r in SECTIONS.get("kr10", [])])):
-        new_d = last_close_date(closes, syms)
+    problems = []
+    for mk, stock_syms, idx_syms in (
+            ("미국", [r[3] for r in SECTIONS.get("us30", [])], US_IDX_SYMS),
+            ("한국", [r[3] for r in SECTIONS.get("kr10", [])], KR_IDX_SYMS)):
+        new_d = last_close_date(closes, stock_syms)
         old_d = prev_stamp_date(prev_html, mk)
         if new_d and old_d and new_d < old_d:
-            backward.append(f"{mk}: 올라가 있는 값 {old_d} → 방금 받은 값 {new_d}")
-    if backward:
-        print("[skip] 데이터가 뒤로 갔습니다 — index.html을 건드리지 않고 끝냅니다:",
-              file=sys.stderr)
-        for line in backward:
+            problems.append(f"{mk}: 화면에 올라가 있는 값 {old_d} → 방금 받은 값 {new_d} "
+                            "(뒤로 감)")
+        # 같은 실행 안에서 지수와 개별 종목의 마지막 거래일이 다르면, 한 화면에
+        # 이틀치가 섞인다. 2026-09-19 토요일 오전 화면이 실제로 그랬다 — 엔비디아
+        # 카드는 목요일(+2.54%)인데 나스닥 카드는 금요일(+0.39%)이었다. 야후가
+        # 개별 종목의 마지막 일봉만 빼놓고 지수는 그대로 준 탓이다. 섞인 화면은
+        # 되돌아간 화면보다 더 나쁘다 — 어느 쪽이 맞는지 볼 방법이 없다.
+        idx_d = last_close_date(closes, idx_syms)
+        if new_d and idx_d and new_d != idx_d:
+            problems.append(f"{mk}: 지수는 {idx_d}인데 개별 종목은 {new_d} "
+                            "(한 화면에 이틀치가 섞임)")
+    if problems:
+        print("[skip] 받은 데이터가 성치 않습니다 — index.html을 건드리지 않고 "
+              "끝냅니다:", file=sys.stderr)
+        for line in problems:
             print(f"  {line}", file=sys.stderr)
-        print("  (야후가 직전 거래일 일봉을 잠시 빼놓은 상태입니다. "
+        print("  (야후가 직전 거래일 일봉을 잠시 빼놓은 상태로 보입니다. "
               "다음 실행에서 다시 시도합니다.)", file=sys.stderr)
         return
 
