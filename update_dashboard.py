@@ -897,8 +897,8 @@ FCF_ROWS = ["Free Cash Flow", "FreeCashFlow"]
 
 
 def _cf_row(cf, names):
-    row = next((r for r in names if r in cf.index), None)
-    return None if row is None else cf.loc[row].dropna()
+    """현금흐름표도 손익계산서와 같은 문제가 있어 같은 방식으로 겹쳐 읽는다."""
+    return _pick_row(cf, names)
 
 
 def fetch_cash(ticker):
@@ -976,9 +976,27 @@ OPI_ROWS = ["Operating Income", "OperatingIncome",
             "Total Operating Income As Reported", "TotalOperatingIncomeAsReported"]
 
 
-def _pick_row(df, names):
-    row = next((r for r in names if r in df.index), None)
-    return None if row is None else df.loc[row].dropna()
+def _pick_row(df, names, what="", ticker=""):
+    """후보 행 이름들을 우선순위대로 겹쳐서 한 줄로 만든다.
+
+    예전에는 "가장 먼저 발견된 행 하나"만 썼다. 그런데 야후는 같은 값을 여러 이름으로
+    내려주면서(예: Total Revenue / Operating Revenue), 갓 발표된 분기의 칸을 한쪽에만
+    채우고 다른 쪽은 비워 두는 일이 있다. 먼저 걸린 행이 하필 빈 쪽이면 그 분기가
+    통째로 사라져서, 화면에는 아무 경고 없이 한 분기 뒤처진 값이 나온다
+    (2026-08-31 영재님이 엔비디아·아마존에서 발견). 그래서 이제는 후보 행을 전부 모아
+    앞의 것을 우선하되 빈칸만 뒤의 것으로 메운다.
+    """
+    found = [r for r in names if r in df.index]
+    if not found:
+        return None
+    out = df.loc[found[0]].copy()
+    for r in found[1:]:
+        out = out.combine_first(df.loc[r])
+    out = out.dropna()
+    if what and len(found) > 1:
+        print(f"  [info] {ticker} {what}: 후보 행 {found} 병합 → {len(out)}개 분기",
+              file=sys.stderr)
+    return out
 
 
 def fetch_fin(ticker):
@@ -986,8 +1004,8 @@ def fetch_fin(ticker):
     inc = yf.Ticker(ticker).quarterly_income_stmt
     if inc is None or inc.empty:
         raise ValueError("빈 손익계산서")
-    rev = _pick_row(inc, REV_ROWS)
-    opi = _pick_row(inc, OPI_ROWS)
+    rev = _pick_row(inc, REV_ROWS, "매출", ticker)
+    opi = _pick_row(inc, OPI_ROWS, "영업이익", ticker)
     if rev is None or rev.empty:
         raise ValueError(f"매출 항목 없음 (있는 항목 예: {list(inc.index)[:3]})")
     if opi is None or opi.empty:
@@ -1010,6 +1028,10 @@ def fetch_fin(ticker):
     if dropped:
         print(f"  [warn] {ticker}: 영업이익이 아직 없는 분기 {dropped} — "
               "매출만 표시하고 이익 칸은 확인 필요로 둡니다", file=sys.stderr)
+    # 어느 분기까지 들어왔는지 로그에 남긴다. "왜 실적이 안 갱신되냐"를 다음에
+    # 추측 없이 확인하려면, 야후가 그때 무엇을 줬는지가 기록에 있어야 한다.
+    print(f"  {ticker}: 야후가 준 분기 {[q for q, _, _ in out]} "
+          f"(손익계산서 열 {len(inc.columns)}개)", file=sys.stderr)
     return out[-FIN_QUARTERS:]
 
 
@@ -2529,9 +2551,33 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "2.9"
+VERSION = "3.1"
 
 CHANGELOG = [
+    ("3.1", "2026-09-14", [
+        ("고침", "<b>토요일 오전에 금요일 미국 종가가 목요일 것으로 되돌아가던 문제.</b> "
+                "야후가 미국장 마감 뒤 몇 시간(미 동부 20시~자정 무렵) 동안 방금 끝난 "
+                "하루치 일봉을 잠깐 빼놓는데, 그 시간대에 돌아간 자동 갱신이 화면을 "
+                "하루 전으로 덮어썼습니다. 저장소 커밋 이력에서 9월 4·8·9·10·11일 "
+                "다섯 번 모두 같은 시간대에 확인했고, 9월 11일(금) 건이 토요일 오전 "
+                "9시 25분 화면을 목요일 종가로 되돌려 놓은 그 실행입니다 "
+                "(엔비디아 $218.29 / -0.03% → $218.36 / -2.26%). 이제 새로 받은 "
+                "데이터가 화면에 올라가 있는 것보다 과거면 아예 덮어쓰지 않고 "
+                "다음 실행으로 넘깁니다."),
+        ("정리", "자동 갱신 시각을 두 시간 간격은 그대로 두되 문제의 시간대(미 동부 "
+                "20시~자정)를 피하도록 한 시간씩 옮겼습니다. 미국 종가는 현지 19시 17분 "
+                "실행이 받아오고, 토요일 한국 아침 8시 17분 화면에는 금요일 종가가 "
+                "들어와 있습니다."),
+    ]),
+    ("3.0", "2026-09-14", [
+        ("고침", "<b>빅테크 분석에서 갓 발표된 분기가 통째로 빠지던 문제.</b> "
+                "야후는 같은 값을 여러 이름(예: Total Revenue / Operating Revenue)으로 "
+                "내려주면서 새 분기 칸을 한쪽에만 채울 때가 있는데, 예전 코드는 먼저 "
+                "발견된 이름 하나만 읽어서 하필 빈 쪽이 걸리면 그 분기가 사라졌습니다. "
+                "이제 후보 항목을 전부 겹쳐 읽어 빈칸만 메웁니다."),
+        ("추가", "야후가 어느 분기까지 줬는지를 실행 기록에 남깁니다 — 다음에 같은 "
+                "질문이 생기면 추측 없이 기록으로 확인할 수 있습니다."),
+    ]),
     ("2.9", "2026-08-31", [
         ("고침", "<b>상단 티커 띠가 여러 겹으로 겹쳐 보이고 글씨가 안 보이던 문제.</b> "
                 "트레이딩뷰는 시세 화면(iframe)을 제가 비우던 칸 <b>바깥</b>에 붙이는데, "
@@ -2691,6 +2737,25 @@ def save_ath_cache(aths, date_str, tried=()):
         print(f"  [warn] {ATH_CACHE} 저장 실패: {e}", file=sys.stderr)
 
 
+def prev_stamp_date(html, market):
+    """지금 올라가 있는 index.html이 "어느 거래일 종가"를 담고 있는지 읽어 온다.
+
+    새로 받은 데이터가 이것보다 과거면, 그건 시장이 그렇게 움직인 게 아니라
+    데이터 제공처가 방금 끝난 하루치를 잠깐 빼먹은 것이다. 그럴 때 덮어쓰면
+    화면이 하루 뒤로 밀린다 — 그래서 비교용으로 미리 읽어 둔다.
+    """
+    m = re.search(r"<!--SUPPDATE-->(.*?)<!--/SUPPDATE-->", html, re.S)
+    if not m:
+        return None
+    m2 = re.search(rf"{market}\s+(\d{{4}})-(\d{{2}})-(\d{{2}})", m.group(1))
+    if not m2:
+        return None
+    try:
+        return datetime.date(int(m2.group(1)), int(m2.group(2)), int(m2.group(3)))
+    except ValueError:
+        return None
+
+
 def last_close_date(closes, syms):
     """주어진 종목들이 실제로 담고 있는 마지막 거래일을 돌려준다.
 
@@ -2773,6 +2838,33 @@ def main(html_path):
                 vols[sym] = v
         except Exception:
             pass
+
+    # ── 데이터가 뒤로 가면 아예 올리지 않는다 (2026-09-14) ──
+    # 야후는 미국장이 끝나고 몇 시간 동안(대략 미 동부 20시~자정 무렵) 방금 끝난
+    # 하루치 일봉을 잠깐 빼놓을 때가 있다. 그 시간대에 돌아간 실행이 그대로 덮어쓰면
+    # 화면이 하루 전 종가로 되돌아간다. 저장소 커밋 이력에서 2026-09-04·08·09·10·11
+    # 다섯 번 모두 미 동부 20시대 실행에서 이런 되돌림이 확인됐고, 그중 9월 11일(금)
+    # 건이 토요일 오전 9시 25분(KST) 화면을 목요일 종가로 되돌려 놓은 그 실행이다
+    # (엔비디아: 금요일 $218.29 / -0.03% → 목요일 $218.36 / -2.26%).
+    # 값을 지어내지 않는다는 원칙과 같은 이유로, 뒤로 가는 갱신은 그냥 건너뛴다.
+    # 다음 실행(2시간 뒤)이면 야후가 복구돼 있어서 정상적으로 올라간다.
+    with open(html_path, encoding="utf-8") as f:
+        prev_html = f.read()
+    backward = []
+    for mk, syms in (("미국", [r[3] for r in SECTIONS.get("us30", [])]),
+                     ("한국", [r[3] for r in SECTIONS.get("kr10", [])])):
+        new_d = last_close_date(closes, syms)
+        old_d = prev_stamp_date(prev_html, mk)
+        if new_d and old_d and new_d < old_d:
+            backward.append(f"{mk}: 올라가 있는 값 {old_d} → 방금 받은 값 {new_d}")
+    if backward:
+        print("[skip] 데이터가 뒤로 갔습니다 — index.html을 건드리지 않고 끝냅니다:",
+              file=sys.stderr)
+        for line in backward:
+            print(f"  {line}", file=sys.stderr)
+        print("  (야후가 직전 거래일 일봉을 잠시 빼놓은 상태입니다. "
+              "다음 실행에서 다시 시도합니다.)", file=sys.stderr)
+        return
 
     # 사상 최고가(전체 기간 최고 종가)는 위의 15개월치로는 알 수 없어서 따로 받는다.
     # 여기서 실패해도 표 전체가 죽으면 안 되므로, 실패하면 aths를 비워 두고
