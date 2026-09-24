@@ -2624,9 +2624,17 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "3.4"
+VERSION = "3.5"
 
 CHANGELOG = [
+    ("3.5", "2026-09-24", [
+        ("고침", "<b>지수가 뒤처졌다는 이유로 멀쩡한 종목 데이터를 버리던 문제.</b> "
+                "v3.3에서 '지수와 종목 날짜가 어긋나면 늦은 쪽에 맞춘다'로 해두었는데, "
+                "야후의 코스피·코스닥이 이틀 뒤처진 날 한국 종목 22개가 9월 23일에서 "
+                "9월 21일로 끌려 내려갔고 그 탓에 갱신이 통째로 건너뛰어졌습니다. "
+                "이제는 지수가 앞설 때만(=종목 일봉이 빠진 경우) 맞추고, 지수가 "
+                "뒤처질 때는 건드리지 않고 기록만 남깁니다."),
+    ]),
     ("3.4", "2026-09-24", [
         ("고침", "<b>야후가 거래일을 빼먹었을 때 '일간'이 이틀치로 찍히던 문제.</b> "
                 "9월 22일(화)이 야후 일봉에서 빠지는 바람에, 구글 카드가 9월 23일 "
@@ -3045,23 +3053,32 @@ def main(html_path):
         # 화면은 한 날짜로 일관되게 유지되고, 갱신은 계속된다.
         stock_d = last_close_date(closes, stock_syms)
         idx_d = last_close_date(closes, idx_syms)
-        if stock_d and idx_d and stock_d != idx_d:
-            keep = min(stock_d, idx_d)
+        if stock_d and idx_d and idx_d > stock_d:
+            # 지수가 개별 종목보다 앞서 있다 = 야후가 개별 종목의 마지막 일봉만
+            # 빼먹은 경우다(2026-09-19 토요일). 지수 쪽을 종목에 맞춰 잘라낸다.
             trimmed = 0
-            for sym in list(stock_syms) + list(idx_syms):
+            for sym in idx_syms:
                 ser = closes.get(sym)
                 if ser is not None:
-                    cut = ser[ser.index.date <= keep]
+                    cut = ser[ser.index.date <= stock_d]
                     if len(cut) and len(cut) < len(ser):
                         closes[sym] = cut
                         trimmed += 1
                 v = vols.get(sym)
                 if v is not None:
-                    vc = v[v.index.date <= keep]
+                    vc = v[v.index.date <= stock_d]
                     if len(vc):
                         vols[sym] = vc
-            notes.append(f"{mk}: 지수 {idx_d} / 개별 종목 {stock_d} 로 어긋나 "
-                         f"{keep} 기준으로 맞춤 ({trimmed}개 잘라냄)")
+            notes.append(f"{mk}: 지수 {idx_d} / 개별 종목 {stock_d} — 지수를 "
+                         f"{stock_d} 기준으로 맞춤 ({trimmed}개)")
+        elif stock_d and idx_d and stock_d > idx_d:
+            # 반대로 지수 쪽이 늦은 경우. 여기서 개별 종목을 지수에 맞춰 끌어내리면
+            # 멀쩡한 종목 데이터를 며칠치 버리게 된다 — 2026-09-24 첫 실행에서
+            # 야후의 코스피·코스닥이 이틀 뒤처져 있는 바람에 한국 종목 22개가
+            # 9월 23일에서 9월 21일로 끌려 내려갔고, 그 탓에 실행이 통째로
+            # 건너뛰어졌다. 지수가 늦은 건 지수 카드만의 문제이므로 기록만 남긴다.
+            notes.append(f"{mk}: 지수가 {idx_d}로 개별 종목({stock_d})보다 뒤처져 "
+                         "있습니다 — 지수 카드만 늦은 날짜입니다 (데이터는 그대로 둠)")
 
         # (2) 맞춘 뒤의 날짜가 이미 올라가 있는 값보다 과거면 덮어쓰지 않는다.
         new_d = last_close_date(closes, stock_syms)
