@@ -212,7 +212,59 @@ def rsi14(close: pd.Series) -> float:
     return v if math.isfinite(v) else None
 
 
-def compute(close: pd.Series, rate: bool, ath: float | None = None):
+_SESSION_CACHE = {}
+
+
+def _sessions(cal_name, upto, back_days=40):
+    """공식 거래일 목록(오래된 것부터). 달력을 못 구하면 빈 목록."""
+    key = (cal_name, upto)
+    if key in _SESSION_CACHE:
+        return _SESSION_CACHE[key]
+    out = []
+    try:
+        import pandas_market_calendars as mcal
+        cal = mcal.get_calendar(cal_name)
+        start = upto - datetime.timedelta(days=back_days)
+        sched = cal.schedule(start_date=start.isoformat(), end_date=upto.isoformat())
+        out = [d.date() for d in sched.index]
+    except Exception:
+        out = []
+    _SESSION_CACHE[key] = out
+    return out
+
+
+# 24시간 돌아가는 것들(비트코인·환율·원자재 선물)은 주말에도 봉이 생겨서
+# 거래소 달력으로 따질 수 없다. 이 검사에서 뺀다.
+def _cal_for(sym):
+    if sym.startswith("FRED:") or sym.endswith(("=X", "=F", "-USD")) or sym == "DX-Y.NYB":
+        return None
+    return "XKRX" if sym.endswith((".KS", ".KQ")) else "NYSE"
+
+
+def day_base_ok(sym, idx):
+    """'일간'의 기준이 되는 직전 봉이 정말 직전 거래일인지 확인한다.
+
+    2026-09-22(화)가 야후 일봉에서 통째로 빠진 적이 있다. 그때 구글 카드는
+    9월 23일 장중가 $346.30을 9월 21일 종가 $354.97과 비교해 "-2.44%"로 찍었다.
+    실제 9월 23일 하루 등락은 -3.80%였다(9월 22일 종가 $351.16 대비).
+    이틀치를 하루치라고 적는 셈이라, 이런 경우에는 숫자를 내지 않고 "확인 필요"로
+    남긴다 — 틀린 값을 그럴듯하게 보여주는 것보다 낫다.
+    """
+    cal = _cal_for(sym)
+    if cal is None or len(idx) < 2:
+        return True
+    sess = _sessions(cal, idx[-1].date())
+    if not sess:
+        return True                       # 달력을 못 구하면 검사하지 않는다
+    last, prev = idx[-1].date(), idx[-2].date()
+    if last not in sess or prev not in sess:
+        return True                       # 판단 근거가 없으면 건드리지 않는다
+    i = sess.index(last)
+    return i == 0 or sess[i - 1] == prev
+
+
+def compute(close: pd.Series, rate: bool, ath: float | None = None,
+            day_ok: bool = True):
     """보조지표 계산. ath는 상장 이후 전체 기간의 최고 종가(사상 최고).
 
     "고점대비"를 두 가지로 나눠서 낸다.
@@ -227,7 +279,10 @@ def compute(close: pd.Series, rate: bool, ath: float | None = None):
         raise ValueError("not enough data")
     last = float(close.iloc[-1])
 
-    day = (last / float(close.iloc[-2]) - 1) * 100 if len(close) >= 2 else None
+    # day_ok=False면 직전 봉이 진짜 직전 거래일이 아니다(야후가 거래일을
+    # 빼먹은 경우). 이틀치를 하루치로 적지 않도록 값을 내지 않는다.
+    day = ((last / float(close.iloc[-2]) - 1) * 100
+           if len(close) >= 2 and day_ok else None)
 
     # 252거래일(약 1년)이 안 되는 종목은 "52주 고점/저점"을 계산하지 않는다.
     # 상장한 지 두 달 된 종목의 46일치 최고가를 "52주 고점"이라고 적으면 거짓이다.
@@ -580,7 +635,7 @@ def chg_rows(items):
     return '<div class="supp-chg">' + "".join(out) + "</div>"
 
 
-def chg_stack(day, week, ytd, ddath=None, base_yr=None):
+def chg_stack(day, week, ytd, ddath=None, base_yr=None, intraday=False):
     """제목 띠 오른쪽에 붙는 일간/주간/올해 등락 세 줄.
 
     값이 없으면 지어내지 않고 "확인 필요"로 둔다. 줄 수는 값이 있든 없든 항상 셋이라
@@ -589,8 +644,14 @@ def chg_stack(day, week, ytd, ddath=None, base_yr=None):
     올해 첫 거래일 종가 대비(YTD)라, "년간"이라고 쓰면 최근 12개월로 오해하기 쉽다.
     """
     yr = base_yr if base_yr else datetime.datetime.now(KST).year
+    # 아직 장이 안 끝났으면 라벨을 "일간"이 아니라 "장중"으로 바꾼다. 같은 -2.44%라도
+    # 장중 값은 마감까지 계속 바뀌는데, 라벨이 "일간"이면 그게 그날 확정 등락처럼
+    # 읽힌다 (2026-09-24 영재님이 구글에서 지적: 화면 -2.44%, 실제 마감 -3.80%).
+    dlab = ("장중", "아직 장이 끝나지 않았습니다 — 직전 거래일 종가 대비 "
+            "현재가이며, 마감 때 달라집니다") if intraday else \
+           ("일간", "직전 거래일 종가 대비")
     return chg_rows([
-        ("일간", day, "supp-dchg", "직전 거래일 종가 대비", "%"),
+        (dlab[0], day, "supp-dchg", dlab[1], "%"),
         ("주간", week, "supp-wchg", "5거래일 전 종가 대비", "%"),
         (f"{yr % 100}년", ytd, "supp-ychg",
          f"{yr - 1}년 마지막 거래일 종가 대비 (YTD) — 최근 12개월이 아닙니다", "%"),
@@ -667,10 +728,14 @@ def make_row(name, label, logo, sym, rate, closes, aths=None, desc=None, tag=Non
         close = closes[sym]
         px = f'<span class="supp-px">{price_str(sym, float(close.dropna().iloc[-1]))}</span>'
         (day, dd52, ddath, week, ytd, sd, rsi, mas,
-         up52, base_yr, low52, high52) = compute(close, rate, aths.get(sym))
+         up52, base_yr, low52, high52) = compute(
+            close, rate, aths.get(sym),
+            day_ok=day_base_ok(sym, close.dropna().index))
         # 접힌 카드에서도 등락을 바로 보게 제목 띠에 붙인다 (2026-08-15 요청).
         # 일간 아래 주간까지 두 줄로 쌓는다 (2026-08-16 요청).
-        chg_html = chg_stack(day, week, ytd, ddath, base_yr)
+        chg_html = chg_stack(day, week, ytd, ddath, base_yr,
+                             intraday=is_intraday(
+                                 sym, close.dropna().index[-1].date()))
         # 제목 띠는 두 줄이다 — 왼쪽 위: 이름·티커, 왼쪽 아래: 가격.
         # 오른쪽에는 일간/주간 등락이 두 줄로 붙는다.
         # 종목마다 줄 수가 같아야 카드 높이가 전부 같아진다(2026-08-16 요청).
@@ -1746,7 +1811,8 @@ def idx_metrics(s, sym, ath):
         ])
         return '<div class="idx-metrics">' + "".join(rows) + "</div>", stack
     (day, dd52, ddath, week, ytd, sd, rsi, mas,
-     up52, base_yr, _lo, _hi) = compute(s, False, ath)
+     up52, base_yr, _lo, _hi) = compute(
+        s, False, ath, day_ok=day_base_ok(sym, s.dropna().index))
     streak, direction = sd
     st = ('<span class="im-v needchk">보합</span>' if streak == 0 else
           f'<span class="im-v up">{streak}일 상승</span>' if direction > 0 else
@@ -1761,7 +1827,8 @@ def idx_metrics(s, sym, ath):
                    else '<span class="im-v needchk">확인 필요</span>'),
             im_row("이평선", ma_html)]
     return ('<div class="idx-metrics">' + "".join(rows) + "</div>",
-            chg_stack(day, week, ytd, ddath, base_yr))
+            chg_stack(day, week, ytd, ddath, base_yr,
+                      intraday=is_intraday(sym, s.dropna().index[-1].date())))
 
 
 def idx_card(name, label, tvsym, last, digits, metrics="", stack=""):
@@ -2557,9 +2624,19 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "3.3"
+VERSION = "3.4"
 
 CHANGELOG = [
+    ("3.4", "2026-09-24", [
+        ("고침", "<b>야후가 거래일을 빼먹었을 때 '일간'이 이틀치로 찍히던 문제.</b> "
+                "9월 22일(화)이 야후 일봉에서 빠지는 바람에, 구글 카드가 9월 23일 "
+                "장중가 $346.30을 9월 21일 종가 $354.97과 비교해 -2.44%로 적었습니다. "
+                "실제 9월 23일 하루 등락은 -3.80%(9월 22일 종가 $351.16 대비)였습니다. "
+                "이제 직전 봉이 진짜 직전 거래일이 아니면 숫자를 내지 않고 "
+                "'확인 필요'로 둡니다 — 틀린 값을 그럴듯하게 보여주지 않습니다."),
+        ("고침", "<b>장이 열려 있는 동안의 값이 그날 확정 등락처럼 보이던 문제.</b> "
+                "아직 장중이면 라벨을 '일간'이 아니라 '장중'으로 적습니다."),
+    ]),
     ("3.3", "2026-09-24", [
         ("고침", "<b>화면이 며칠씩 멈춰 있던 문제.</b> v3.2에서 '지수와 개별 종목의 "
                 "날짜가 어긋나면 아예 올리지 않는다'로 막아 두었는데, 그게 너무 자주 "
