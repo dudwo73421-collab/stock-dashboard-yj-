@@ -2557,9 +2557,23 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "3.2"
+VERSION = "3.3"
 
 CHANGELOG = [
+    ("3.3", "2026-09-24", [
+        ("고침", "<b>화면이 며칠씩 멈춰 있던 문제.</b> v3.2에서 '지수와 개별 종목의 "
+                "날짜가 어긋나면 아예 올리지 않는다'로 막아 두었는데, 그게 너무 자주 "
+                "걸려 갱신 자체를 멈춰 세웠습니다. 이제는 건너뛰는 대신 늦은 쪽 "
+                "날짜에 맞춰 잘라내서, 화면은 한 날짜로 일관되게 두되 갱신은 계속 "
+                "되게 했습니다."),
+        ("추가", "<b>야후가 거래일을 통째로 빼먹는 경우를 잡아냅니다.</b> 2026년 "
+                "9월 22일(화)이 야후 일봉에서 빠지는 바람에, 9월 23일 '일간'이 하루가 "
+                "아니라 이틀치로 계산됐습니다(엔비디아 실제 -1.40% → 화면 +0.37%). "
+                "이제 공식 거래일 달력과 대조해서 빠진 날이 있으면 상단에 "
+                "'거래일 빠짐'이라고 적습니다."),
+        ("추가", "실행할 때마다 무엇을 보고 무엇을 결정했는지 run_log.json에 "
+                "남깁니다 — 다음에 이런 일이 생기면 추측 없이 기록으로 확인합니다."),
+    ]),
     ("3.2", "2026-09-19", [
         ("고침", "<b>한 화면에 이틀치 숫자가 섞이던 문제.</b> 9월 19일 토요일 오전 "
                 "화면이 실제로 그랬습니다 — 엔비디아 카드는 목요일치(+2.54%)인데 "
@@ -2751,6 +2765,83 @@ def save_ath_cache(aths, date_str, tried=()):
         print(f"  [warn] {ATH_CACHE} 저장 실패: {e}", file=sys.stderr)
 
 
+def write_run_log(html_path, decision, problems, notes, gaps, stamp=None):
+    """실행할 때마다 무엇을 보고 무엇을 결정했는지 파일로 남긴다.
+
+    깃허브 액션 로그는 90일이 지나면 지워지고, 밖에서 들여다보기도 번거롭다.
+    이 파일이 저장소에 같이 커밋되면 "그때 왜 안 올라갔는지"를 나중에 추측 없이
+    확인할 수 있다. 실패해도 본 작업을 막지 않는다.
+    """
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(html_path)), "run_log.json")
+        entry = {
+            "시각_KST": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
+            "버전": VERSION,
+            "결정": decision,          # "write" 또는 "skip"
+            "문제": problems,
+            "맞춤": notes,
+            "빠진_거래일": {mk: ds for mk, ds in gaps},
+        }
+        if stamp:
+            entry["표기"] = stamp
+        old = []
+        if os.path.exists(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    old = json.load(f)
+                if not isinstance(old, list):
+                    old = []
+            except Exception:
+                old = []
+        old.append(entry)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(old[-200:], f, ensure_ascii=False, indent=1)
+    except Exception as e:
+        print(f"  [warn] run_log.json 기록 실패: {e}", file=sys.stderr)
+
+
+def missing_sessions(closes, syms, cal_name, lookback=12):
+    """최근 거래일 중 야후가 빼먹은 날을 돌려준다. (오래된 것부터, 마지막 날 제외)
+
+    2026-09-22(화)가 야후 일봉에서 통째로 빠진 적이 있다. 그날 화면은 "미국
+    2026-09-21 종가"라고 정직하게 적혀 있었지만, 다음 날 9월 23일 값이 들어오자
+    "일간"이 9월 21일 대비로 계산돼 실제 하루 등락(-1.40%)이 아니라 이틀치가
+    +0.37%로 찍혔다. 날짜 표기만으로는 이걸 알 수 없어서, 공식 거래일 달력과
+    대조한다. 달력을 못 구하면(패키지 없음 등) 빈 목록을 돌려주고 조용히 넘어간다 —
+    없는 정보를 지어내느니 검사를 건너뛰는 쪽이 낫다.
+    """
+    try:
+        import pandas_market_calendars as mcal
+    except Exception:
+        return []
+    have = set()
+    last = None
+    for sym in syms:
+        ser = closes.get(sym)
+        if ser is None:
+            continue
+        try:
+            idx = ser.dropna().index
+        except Exception:
+            continue
+        for ts in idx[-(lookback + 5):]:
+            have.add(ts.date())
+        if len(idx) and (last is None or idx[-1].date() > last):
+            last = idx[-1].date()
+    if last is None or not have:
+        return []
+    try:
+        cal = mcal.get_calendar(cal_name)
+        start = last - datetime.timedelta(days=lookback * 2 + 10)
+        sched = cal.schedule(start_date=start.isoformat(), end_date=last.isoformat())
+        sessions = [d.date() for d in sched.index][-lookback:]
+    except Exception as e:
+        print(f"  [warn] {cal_name} 거래일 달력: {e}", file=sys.stderr)
+        return []
+    # 마지막 날은 우리가 가진 마지막 봉이므로 당연히 있다. 그 앞쪽만 본다.
+    return [d for d in sessions if d < last and d not in have]
+
+
 def prev_stamp_date(html, market):
     """지금 올라가 있는 index.html이 "어느 거래일 종가"를 담고 있는지 읽어 온다.
 
@@ -2864,32 +2955,63 @@ def main(html_path):
     # 다음 실행(2시간 뒤)이면 야후가 복구돼 있어서 정상적으로 올라간다.
     with open(html_path, encoding="utf-8") as f:
         prev_html = f.read()
-    problems = []
-    for mk, stock_syms, idx_syms in (
-            ("미국", [r[3] for r in SECTIONS.get("us30", [])], US_IDX_SYMS),
-            ("한국", [r[3] for r in SECTIONS.get("kr10", [])], KR_IDX_SYMS)):
+    problems, notes, gaps = [], [], []
+    for mk, stock_syms, idx_syms, cal_name in (
+            ("미국", [r[3] for r in SECTIONS.get("us30", [])], US_IDX_SYMS, "NYSE"),
+            ("한국", [r[3] for r in SECTIONS.get("kr10", [])], KR_IDX_SYMS, "XKRX")):
+        # (1) 지수와 개별 종목의 마지막 거래일이 어긋나면 늦은 쪽에 맞춰 잘라낸다.
+        # 2026-09-19 토요일 오전 화면이 실제로 어긋났다 — 엔비디아 카드는
+        # 목요일(+2.54%)인데 나스닥 카드는 금요일(+0.39%)이었다. 야후가 개별 종목의
+        # 마지막 일봉만 빼놓고 지수는 그대로 준 탓이다.
+        # v3.2에서는 이럴 때 실행을 통째로 건너뛰게 했는데, 그게 화면을 며칠씩
+        # 멈춰 세웠다(2026-09-24 영재님 지적). 이제는 건너뛰는 대신 맞춘다 —
+        # 화면은 한 날짜로 일관되게 유지되고, 갱신은 계속된다.
+        stock_d = last_close_date(closes, stock_syms)
+        idx_d = last_close_date(closes, idx_syms)
+        if stock_d and idx_d and stock_d != idx_d:
+            keep = min(stock_d, idx_d)
+            trimmed = 0
+            for sym in list(stock_syms) + list(idx_syms):
+                ser = closes.get(sym)
+                if ser is not None:
+                    cut = ser[ser.index.date <= keep]
+                    if len(cut) and len(cut) < len(ser):
+                        closes[sym] = cut
+                        trimmed += 1
+                v = vols.get(sym)
+                if v is not None:
+                    vc = v[v.index.date <= keep]
+                    if len(vc):
+                        vols[sym] = vc
+            notes.append(f"{mk}: 지수 {idx_d} / 개별 종목 {stock_d} 로 어긋나 "
+                         f"{keep} 기준으로 맞춤 ({trimmed}개 잘라냄)")
+
+        # (2) 맞춘 뒤의 날짜가 이미 올라가 있는 값보다 과거면 덮어쓰지 않는다.
         new_d = last_close_date(closes, stock_syms)
         old_d = prev_stamp_date(prev_html, mk)
         if new_d and old_d and new_d < old_d:
-            problems.append(f"{mk}: 화면에 올라가 있는 값 {old_d} → 방금 받은 값 {new_d} "
-                            "(뒤로 감)")
-        # 같은 실행 안에서 지수와 개별 종목의 마지막 거래일이 다르면, 한 화면에
-        # 이틀치가 섞인다. 2026-09-19 토요일 오전 화면이 실제로 그랬다 — 엔비디아
-        # 카드는 목요일(+2.54%)인데 나스닥 카드는 금요일(+0.39%)이었다. 야후가
-        # 개별 종목의 마지막 일봉만 빼놓고 지수는 그대로 준 탓이다. 섞인 화면은
-        # 되돌아간 화면보다 더 나쁘다 — 어느 쪽이 맞는지 볼 방법이 없다.
-        idx_d = last_close_date(closes, idx_syms)
-        if new_d and idx_d and new_d != idx_d:
-            problems.append(f"{mk}: 지수는 {idx_d}인데 개별 종목은 {new_d} "
-                            "(한 화면에 이틀치가 섞임)")
+            problems.append(f"{mk}: 화면에 올라가 있는 값 {old_d} → 방금 받은 값 "
+                            f"{new_d} (뒤로 감)")
+
+        # (3) 최근 거래일 중 빠진 날이 있는지 공식 달력과 대조한다.
+        miss = missing_sessions(closes, list(stock_syms) + list(idx_syms), cal_name)
+        if miss:
+            gaps.append((mk, [d.isoformat() for d in miss]))
     if problems:
-        print("[skip] 받은 데이터가 성치 않습니다 — index.html을 건드리지 않고 "
+        print("[skip] 받은 데이터가 뒤로 갔습니다 — index.html을 건드리지 않고 "
               "끝냅니다:", file=sys.stderr)
         for line in problems:
             print(f"  {line}", file=sys.stderr)
         print("  (야후가 직전 거래일 일봉을 잠시 빼놓은 상태로 보입니다. "
               "다음 실행에서 다시 시도합니다.)", file=sys.stderr)
+        write_run_log(html_path, "skip", problems, notes, gaps)
         return
+    for line in notes:
+        print(f"  [align] {line}", file=sys.stderr)
+    for mk, dates in gaps:
+        print(f"  [warn] {mk}: 야후 일봉에 거래일 {', '.join(dates)}이(가) 빠져 "
+              "있습니다 — '일간'이 실제 하루 등락이 아닐 수 있습니다", file=sys.stderr)
+
 
     # 사상 최고가(전체 기간 최고 종가)는 위의 15개월치로는 알 수 없어서 따로 받는다.
     # 여기서 실패해도 표 전체가 죽으면 안 되므로, 실패하면 aths를 비워 두고
@@ -3064,6 +3186,14 @@ def main(html_path):
     stamp = (f"미국 {close_label(us_d, 'America/New_York', 16, 0)} · "
              f"한국 {close_label(kr_d, 'Asia/Seoul', 15, 30)} "
              f"(자동 갱신 {now_kst.strftime('%m-%d %H:%M')})")
+    # 야후가 최근 거래일을 빼먹었으면 화면에 그대로 적는다. 날짜 표기만 보면
+    # 정상으로 보이지만 "일간"이 실제 하루 등락이 아니기 때문이다
+    # (2026-09-22가 통째로 빠져서 9월 23일 일간이 이틀치로 찍힌 적이 있다).
+    if gaps:
+        det = " / ".join(f"{mk} {', '.join(ds)}" for mk, ds in gaps)
+        stamp += (f' <span class="needchk" title="야후 파이낸스가 이 거래일의 '
+                  f'일봉을 아직 주지 않았습니다. 그래서 &quot;일간&quot;이 하루가 '
+                  f'아니라 이틀치 등락일 수 있습니다.">· 거래일 빠짐: {det}</span>')
     ds, de = "<!--SUPPDATE-->", "<!--/SUPPDATE-->"
     i, j = html.find(ds), html.find(de)
     if i != -1 and j != -1:
@@ -3071,6 +3201,7 @@ def main(html_path):
 
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
+    write_run_log(html_path, "write", problems, notes, gaps, stamp)
     print(f"updated {ok_count}/{len(SECTIONS)} sections, "
           f"{len(closes)}/{len(all_syms) + len(FRED_SYMS)} symbols fetched, "
           f"idx={'ok' if idx_ok else 'MARKER MISSING'}, "
