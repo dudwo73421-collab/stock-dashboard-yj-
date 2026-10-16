@@ -241,6 +241,26 @@ def _cal_for(sym):
     return "XKRX" if sym.endswith((".KS", ".KQ")) else "NYSE"
 
 
+def bars_contiguous(sym, idx, n):
+    """마지막 n+1개 봉이 빠짐없이 이어진 거래일인지. 연속 상승 신호에 쓴다.
+
+    야후가 중간 거래일을 빼먹으면(2026-09-22 사례) 이틀치 상승이 하루로 세어져
+    "3일 연속"이 실제로는 아닐 수 있다. 공식 거래일 달력과 대조해 확인한다.
+    달력이 없거나 판단 근거가 없으면 day_base_ok와 같이 건드리지 않는다(True).
+    """
+    cal = _cal_for(sym)
+    if cal is None or len(idx) < n + 1:
+        return True
+    sess = _sessions(cal, idx[-1].date())
+    if not sess:
+        return True
+    dates = [d.date() for d in idx[-(n + 1):]]
+    if any(d not in sess for d in dates):
+        return True
+    pos = [sess.index(d) for d in dates]
+    return all(b - a == 1 for a, b in zip(pos, pos[1:]))
+
+
 def day_base_ok(sym, idx):
     """'일간'의 기준이 되는 직전 봉이 정말 직전 거래일인지 확인한다.
 
@@ -815,37 +835,38 @@ def fng_class(score):
     return "fng-neutral"
 
 
+FNG_SHORT = {"미국 주식 (CNN)": "미국", "암호화폐 (alternative.me)": "암호화폐",
+             "한국 주식 (자체 산출)": "한국(자체)"}
+
+
+def _tip(*parts):
+    """title 속성에 넣을 한 줄. 태그를 빼고 줄바꿈은 ' · '로 잇는다."""
+    txt = " · ".join(p for p in parts if p)
+    txt = re.sub(r"<br\s*/?>", " · ", txt)
+    txt = re.sub(r"<[^>]+>", "", txt)
+    return txt.replace("&", "&amp;").replace('"', "&quot;")
+
+
 def fng_item_html(label, score, rating, asof, prev_line):
-    """값이 있을 때의 카드 한 칸."""
+    """값이 있을 때의 한 칸. 2026-10-16부터 수치와 등급만 한 줄로 보인다(영재님 요청).
+    기준일·과거 값은 버리지 않고 마우스를 올리면 보이도록 title에 넣는다."""
     cls = fng_class(score)
+    short = FNG_SHORT.get(label, label)
     return (
-        '          <div class="fng-item">\n'
-        f'            <div class="fng-head"><span class="fng-label">{label}</span>'
-        f'<span class="fng-rating {cls}">{rating}</span></div>\n'
-        f'            <div class="fng-score">{score}</div>\n'
-        f'            <div class="fng-bar" title="0 극도의 공포 · 50 중립 · 100 극도의 탐욕">'
-        f'<div class="fng-mark" style="left:{score}%"></div></div>\n'
-        '            <div class="fng-scale"><span>0 공포</span><span>50</span>'
-        '<span>탐욕 100</span></div>\n'
-        f'            <details class="fng-det"><summary>자세히</summary>'
-        f'<div class="fng-prev">{asof}<br>{prev_line}</div></details>\n'
-        '          </div>'
+        f'          <div class="fng-item" title="{_tip(label, asof, prev_line)}">'
+        f'<span class="fng-label">{short}</span>'
+        f'<span class="fng-score {cls}">{score}</span>'
+        f'<span class="fng-rating {cls}">{rating}</span></div>'
     )
 
 
 def fng_item_fail(label, note):
     """값을 못 받아왔을 때. 숫자를 지어내지 않는다."""
+    short = FNG_SHORT.get(label, label)
     return (
-        '          <div class="fng-item">\n'
-        f'            <div class="fng-head"><span class="fng-label">{label}</span>'
-        '<span class="fng-rating needchk">확인 필요</span></div>\n'
-        '            <div class="fng-score needchk">확인 필요</div>\n'
-        '            <div class="fng-bar"></div>\n'
-        '            <div class="fng-scale"><span>0 공포</span><span>50</span>'
-        '<span>탐욕 100</span></div>\n'
-        f'            <details class="fng-det"><summary>자세히</summary>'
-        f'<div class="fng-prev">{note}</div></details>\n'
-        '          </div>'
+        f'          <div class="fng-item" title="{_tip(label, note)}">'
+        f'<span class="fng-label">{short}</span>'
+        '<span class="fng-score needchk">확인 필요</span></div>'
     )
 
 
@@ -916,7 +937,7 @@ def build_fng(closes=None):
             items.append(fng_item_fail(label, note))
     # 한국은 공개 API가 없어서 야후 데이터로 직접 계산한다 (build_fng_kr 주석 참고).
     items.append(build_fng_kr(closes or {}))
-    return '        <div class="fng-grid">\n' + "\n".join(items) + "\n        </div>"
+    return '        <div class="fng-row">\n' + "\n".join(items) + "\n        </div>"
 
 
 # ------------------------------------------------------------- 빅테크 CAPEX
@@ -1984,6 +2005,7 @@ def build_fng_kr(closes):
 #   골든/데드크로스: 5일 이동평균이 20일 이동평균을 오늘 상향/하향 돌파
 #   RSI 과매도/과열: 14일 RSI 30 이하 / 70 이상
 #   급등/급락    : 하루 ±5% 이상
+#   연속 상승    : 종가가 3거래일 이상 매일 올랐다 (2026-10-16 추가)
 # 계산 조건일 뿐 매수·매도 추천이 아니라는 문구를 화면에 같이 적는다.
 
 def build_signals(closes):
@@ -1994,7 +2016,7 @@ def build_signals(closes):
                 seen.add(sym)
                 stocks.append((name, sym))
 
-    hi52, golden, dead, oversold, overheat, spike = [], [], [], [], [], []
+    hi52, golden, dead, oversold, overheat, spike, streak3 = [], [], [], [], [], [], []
     for name, sym in stocks:
         s = closes.get(sym)
         if s is None:
@@ -2025,6 +2047,15 @@ def build_signals(closes):
             overheat.append((name, sym, f"RSI {r:.1f}", -r))
         if abs(day) >= 5:
             spike.append((name, sym, f"{day:+.1f}%", -abs(day)))
+        # 3거래일 이상 연속 상승. 하루라도 보합이면 끊긴 것으로 본다.
+        # 옆에 연속 일수와 그 기간 누적 상승률을 적는다 — 오래·많이 오른 순.
+        vals = s.to_numpy()
+        k = 0
+        while k + 1 < len(vals) and vals[-1 - k] > vals[-2 - k]:
+            k += 1
+        if k >= 3 and bars_contiguous(sym, s.index, k):
+            cum = (last / float(s.iloc[-1 - k]) - 1) * 100
+            streak3.append((name, sym, f"{k}일 {cum:+.1f}%", (-k, -cum)))
 
     def chips(items, vcls):
         if not items:
@@ -2038,15 +2069,16 @@ def build_signals(closes):
 
     rows = [
         ("52주 신고가", chips(hi52, "sig-acc")),
+        ("3거래일 연속 상승 <i>3일 이상 매일 종가 상승</i>", chips(streak3, "up")),
         ("골든크로스 <i>5일선이 20일선 상향 돌파</i>", chips(golden, "up")),
         ("데드크로스 <i>5일선이 20일선 하향 돌파</i>", chips(dead, "down")),
         ("RSI 과매도 <i>30 이하</i>", chips(oversold, "down")),
         ("RSI 과열 <i>70 이상</i>", chips(overheat, "up")),
         ("하루 ±5% 이상", chips(spike, "sig-acc")),
     ]
-    n_all = sum(len(x) for x in (hi52, golden, dead, oversold, overheat, spike))
-    print(f"  신호 {n_all}건 (신고가 {len(hi52)} · 골든 {len(golden)} · 데드 {len(dead)} · "
-          f"과매도 {len(oversold)} · 과열 {len(overheat)} · 급등락 {len(spike)})")
+    n_all = sum(len(x) for x in (hi52, golden, dead, oversold, overheat, spike, streak3))
+    print(f"  신호 {n_all}건 (신고가 {len(hi52)} · 연속상승 {len(streak3)} · 골든 {len(golden)} · "
+          f"데드 {len(dead)} · 과매도 {len(oversold)} · 과열 {len(overheat)} · 급등락 {len(spike)})")
     body = "".join(f'<div class="sig-row"><span class="sig-k">{k}</span>'
                    f'<span class="sig-v">{v}</span></div>' for k, v in rows)
     return f'\n        <div class="sig-grid">{body}</div>\n      '
@@ -2316,6 +2348,54 @@ def build_earn_list(rows):
             '        </div>'
         )
     return "\n".join(out)
+
+
+WEEK_EARN_DAYS = 7      # 개요 탭 카드에 보여줄 기간(오늘 포함)
+
+
+def build_week_earn(rows):
+    """개요 탭 '실적 발표 — 앞으로 7일' 카드 (2026-10-16 요청).
+
+    "이번 주"를 월~일로 자르면 금요일에는 하루치만 남아 거의 비게 된다. 그래서
+    오늘부터 7일을 보여준다. 날짜는 실적캘린더 탭과 같은 값(collect_earnings)을
+    그대로 쓰고 새로 받지 않는다.
+    미국 종목의 날짜는 현지 날짜다. 한국시간 오전에는 미국이 아직 전날이라, 창의
+    시작을 두 시장 중 이른 쪽 "오늘"로 잡아야 오늘 밤 뉴욕에서 발표할 회사가
+    빠지지 않는다(market_today 주석과 같은 이유).
+    장전/장후 시간은 야후가 주지 않으므로 적지 않는다.
+    """
+    kst_today = datetime.datetime.now(KST).date()
+    try:
+        us_today = datetime.datetime.now(ZoneInfo("America/New_York")).date()
+    except Exception:
+        us_today = kst_today - datetime.timedelta(days=1)
+    start = min(us_today, kst_today)
+    end = kst_today + datetime.timedelta(days=WEEK_EARN_DAYS - 1)
+    # 같은 날 안에서는 표에 실린 순서(=시가총액 순)대로 놓는다
+    rank = {name: i for i, (name, _short, _sym) in enumerate(earn_targets())}
+    by_day = {}
+    for d, name, _short, confirmed in rows:
+        if start <= d <= end:
+            by_day.setdefault(d, []).append((rank.get(name, 999), name, confirmed))
+
+    def fmt(d):
+        return f"{d.month}/{d.day}({WEEKDAYS_KO[(d.weekday() + 1) % 7]})"
+
+    head = (f'<div class="wk-range">{fmt(start)} ~ {fmt(end)} · 미국 종목은 현지 날짜 · '
+            '<b>*</b> 예상일(회사 미확정)</div>')
+    n = sum(len(v) for v in by_day.values())
+    print(f"  앞으로 {WEEK_EARN_DAYS}일 실적 발표 {n}건")
+    if not by_day:
+        return ('\n        <div class="sig-grid wk">' + head +
+                '<span class="sig-none">이 기간에 잡힌 발표가 없습니다</span></div>\n      ')
+    out = []
+    for d in sorted(by_day):
+        chips = "".join(f'<span class="sig-chip">{nm}{"" if ok else "*"}</span>'
+                        for _r, nm, ok in sorted(by_day[d]))
+        cls = "sig-row wk-today" if d == kst_today else "sig-row"
+        out.append(f'<div class="{cls}"><span class="sig-k">{fmt(d)}</span>'
+                   f'<span class="sig-v">{chips}</span></div>')
+    return '\n        <div class="sig-grid wk">' + head + "".join(out) + '</div>\n      '
 
 
 # --------------------------------------------------- 거시 이벤트 (FOMC·BOJ·한은·테슬라 인도량)
@@ -2624,9 +2704,23 @@ def build_sector(closes):
 #   - "고침"은 화면에 나가던 숫자가 실제로 틀렸던 것
 #   - "추가"는 없던 정보가 생긴 것
 #   - "정리"는 숫자는 그대로인데 보기가 달라진 것
-VERSION = "3.5"
+VERSION = "3.7"
 
 CHANGELOG = [
+    ("3.7", "2026-10-16", [
+        ("추가", "<b>개요 탭에 '실적 발표 — 앞으로 7일' 카드</b>를 넣었습니다. 날짜별로 "
+                "발표할 회사를 시가총액 순으로 모았고, 회사가 아직 날짜를 확정하지 않은 "
+                "곳은 * 표시를 붙입니다. 실적캘린더 탭과 같은 자료를 씁니다."),
+    ]),
+    ("3.6", "2026-10-16", [
+        ("정리", "<b>공포·탐욕 지수를 개요 탭 맨 위로 올리고 한 줄로 줄였습니다.</b> "
+                "막대·눈금·자세히 버튼을 빼고 숫자와 등급만 남겼습니다. 기준일과 과거 "
+                "값은 숫자에 마우스를 올리면 나옵니다."),
+        ("추가", "<b>오늘의 신호에 '3거래일 연속 상승'</b>을 넣었습니다. 옆에 연속 일수와 "
+                "그동안의 누적 상승률을 적습니다. 야후가 중간 거래일을 빼먹은 종목은 "
+                "공식 거래일 달력과 대조해서 제외합니다."),
+        ("정리", "S&amp;P500 히트맵 카드, 반도체·자동차 탭을 없앴습니다."),
+    ]),
     ("3.5", "2026-09-24", [
         ("고침", "<b>지수가 뒤처졌다는 이유로 멀쩡한 종목 데이터를 버리던 문제.</b> "
                 "v3.3에서 '지수와 종목 날짜가 어긋나면 늦은 쪽에 맞춘다'로 해두었는데, "
@@ -3258,6 +3352,7 @@ def main(html_path):
     earn_rows, earn_miss = collect_earnings()
     html, ecal_ok = splice(html, "EARNCAL", build_earn_cal(earn_rows))
     html, elist_ok = splice(html, "EARNLIST", build_earn_list(earn_rows))
+    html, wk_ok = splice(html, "WEEKEARN", build_week_earn(earn_rows))
     miss_txt = ("받아오지 못한 종목: " + ", ".join(earn_miss)) if earn_miss else "전 종목 조회 성공"
     em_s, em_e = "<!--EARNMISS-->", "<!--/EARNMISS-->"
     i, j = html.find(em_s), html.find(em_e)
@@ -3299,7 +3394,7 @@ def main(html_path):
     print(f"updated {ok_count}/{len(SECTIONS)} sections, "
           f"{len(closes)}/{len(all_syms) + len(FRED_SYMS)} symbols fetched, "
           f"idx={'ok' if idx_ok else 'MARKER MISSING'}, "
-          f"earn={'ok' if ecal_ok and elist_ok else 'MARKER MISSING'}({len(earn_rows)}건), "
+          f"earn={'ok' if ecal_ok and elist_ok and wk_ok else 'MARKER MISSING'}({len(earn_rows)}건), "
           f"fng={'ok' if fng_ok else 'MARKER MISSING'}, "
           f"yield={'ok' if yld_ok else 'MARKER MISSING'}, "
           f"fin={'ok' if fin_ok else 'MARKER MISSING'}, "
