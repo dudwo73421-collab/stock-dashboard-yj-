@@ -692,6 +692,7 @@
     border: 1px solid var(--grid); border-radius: 6px; font-size: 10px;
     background: var(--surface-1); color: var(--text-primary); }
   .tabord-list button:disabled { opacity: .3; cursor: default; }
+  .tabord-head2 { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--grid); }
   .tabord-acts { display: flex; gap: 6px; margin-top: 9px; }
   .tabord-acts button { padding: 5px 11px; font-size: 11.5px; font-weight: 700; cursor: pointer;
     border: 1px solid var(--grid); border-radius: 7px;
@@ -1450,11 +1451,13 @@ document.addEventListener('DOMContentLoaded', function () {
     <button class="tab-btn" data-tab="capex">빅테크분석</button>
     <button class="tab-btn" data-tab="watch">관심종목<span class="tab-count" id="watchCount"></span></button>
     <button type="button" class="tab-edit" id="tabEditBtn" aria-expanded="false"
-            title="탭 순서 바꾸기">↕ 순서</button>
+            title="탭 순서 · 개요 카드 순서 바꾸기">↕ 순서</button>
   </nav>
   <div class="tabord" id="tabOrder" hidden>
     <div class="tabord-head">탭 순서 — <b>▲▼</b>로 옮기면 이 브라우저에 기억됩니다</div>
     <ol class="tabord-list" id="tabOrderList"></ol>
+    <div class="tabord-head tabord-head2">개요 탭 카드 순서</div>
+    <ol class="tabord-list" id="cardOrderList"></ol>
     <div class="tabord-acts">
       <button type="button" id="tabOrderReset">기본 순서로</button>
       <button type="button" id="tabOrderDone">닫기</button>
@@ -1463,7 +1466,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   <!-- ================= 개요 ================= -->
   <section class="panel active" id="overview">
-    <div class="card fng-card">
+    <div class="card fng-card" data-card="fng" data-label="공포·탐욕 지수">
       <div class="fng-wrap">
         <span class="fng-title" title="0=극도의 공포, 100=극도의 탐욕. 한국은 공개 지수가 없어 직접 계산한 값이라 셋을 서로 비교할 수 없습니다. 숫자에 마우스를 올리면 기준일과 과거 값이 나옵니다.">공포<br>탐욕</span>
       <!--FNG:START-->
@@ -1476,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', function () {
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" data-card="earn7" data-label="실적 발표 (앞으로 7일)">
       <div class="card-title">실적 발표 — 앞으로 7일</div>
       <!--WEEKEARN:START-->
 
@@ -1486,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="card-note">실적캘린더 탭과 같은 야후 파이낸스 발표일입니다. 장전·장후 시간은 야후가 주지 않아 적지 않았습니다. 미국 장 마감 후 발표는 한국시간으로 다음날 새벽입니다.</div>
     </div>
 
-    <div class="card">
+    <div class="card" data-card="signal" data-label="오늘의 신호">
       <div class="card-title">오늘의 신호 (자동 계산)</div>
       <!--SIG:START-->
 
@@ -1496,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="card-note">미국·한국·ETF 전 종목의 종가에서 기계적으로 계산한 조건입니다: 52주 신고가(252거래일 최고 종가 경신), 5·20일 이동평균선 골든/데드크로스, 14일 RSI 30 이하/70 이상, 하루 ±5% 이상, 3거래일 이상 연속 상승(옆 숫자는 연속 일수와 그동안의 누적 상승률). <b>계산 결과일 뿐 매수·매도 추천이 아닙니다</b> — 걸린 종목은 해당 탭에서 다른 지표와 함께 확인하세요.</div>
     </div>
 
-    <div class="card">
+    <div class="card" data-card="sector" data-label="섹터별 등락">
       <div class="card-title">섹터별 등락 (전일 대비 · 자동 계산)</div>
       <!--SECTOR:START-->
       <div class="sec-note">기준일 미국 2026-10-15 · 한국 2026-10-16 · <span class="sec-mk">한</span> 표시가 한국 종목입니다</div>
@@ -1594,7 +1597,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="card-note">미국 TOP75 · 한국 TOP20 종목을 업종으로 묶어 <b>전일 대비 등락률을 동일가중 평균</b>한 값입니다. 시가총액 가중이 아닌 이유는, 시총으로 가중하면 반도체 칸이 사실상 엔비디아 한 종목이 되어 "업종이 움직였는지"를 볼 수 없기 때문입니다. <b>칸을 누르면 그 업종 종목별 등락률</b>이 펼쳐집니다. 색은 보조 표시일 뿐이고 숫자를 항상 같이 적었습니다 — 빨강이 상승, 파랑이 하락, 회색은 ±0.3% 미만입니다. 업종 분류는 손으로 지정한 값이라 자동으로 바뀌지 않습니다. 시세를 못 받은 종목은 평균에서 빼고 "n/m종목"으로 표시합니다.</div>
     </div>
 
-    <div class="card">
+    <div class="card" data-card="index" data-label="주요 지수">
       <div class="card-title">주요 지수 (미국 · 한국)</div>
       <!--IDX:START-->
         <div class="idx-grid">
@@ -1742,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="card-note">카드 제목에 <b>일간·주간·연간</b> 등락이 바로 보이고, 카드를 누르면 52주 저점/고점대비·사상최고 대비·RSI·이평선이 펼쳐집니다. (차트는 위젯이 카드 밖으로 넘쳐 아래를 덮어서 뺐습니다.) 숫자는 전일 종가(하이일드 스프레드는 ICE 최신 발표치) 기준입니다. 미 10년물·2년물 금리는 아래 국채 금리 카드에 있습니다. 하이일드 스프레드는 ICE BofA 미국 하이일드 지수의 국채 대비 스프레드(OAS, %p)로 — 커질수록 신용시장이 불안하다는 뜻입니다.</div>
     </div>
 
-    <div class="card">
+    <div class="card" data-card="yield" data-label="미 국채 금리">
       <div class="card-title">미 국채 금리 · 장단기 금리차</div>
       <!--YIELD:START-->
         <div class="yld-grid">
@@ -1768,7 +1771,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="card-note">금리차가 마이너스면 장단기 금리 역전입니다. 1%p = 100bp.</div>
     </div>
 
-    <details class="card cl-card" id="changelog">
+    <details class="card cl-card" id="changelog" data-card="changelog" data-label="변경 이력">
       <summary class="card-title">변경 이력 — 지금 보고 계신 버전은 <b><!--VER2-->v3.7<!--/VER2--></b>입니다</summary>
       <div class="cl-body">
       <!--CHANGELOG:START-->
@@ -3012,6 +3015,71 @@ document.addEventListener('DOMContentLoaded', function () {
       applyOrder(DEFAULT.slice()); renderList();
     });
     applyOrder(load());       // 페이지를 열 때 저장된 순서를 적용
+  })();
+
+  // ── 개요 탭 카드 순서 바꾸기 (2026-10-16 요청) ──────────────────────────
+  // 탭 순서와 같은 "↕ 순서" 창 아래쪽에 목록을 붙였다. 순서는 이 브라우저에만
+  // 저장된다. 카드 안의 숫자는 자동 갱신이 매번 새로 쓰지만, 카드 자체는
+  // data-card 이름으로 찾아서 옮기므로 갱신과 상관없이 순서가 유지된다.
+  // 저장된 목록에 없는 카드(나중에 새로 생기는 카드)는 맨 뒤에 붙는다.
+  (function () {
+    var KEY = 'yj-cardorder-v1';
+    var panel = document.getElementById('overview');
+    var list = document.getElementById('cardOrderList');
+    var box = document.getElementById('tabOrder');
+    var btn = document.getElementById('tabEditBtn');
+    if (!panel || !list || !box || !btn) return;
+    function cardsNow() {
+      return Array.from(panel.children).filter(function (el) { return el.dataset && el.dataset.card; });
+    }
+    var DEFAULT = cardsNow().map(function (el) { return el.dataset.card; });
+    function byKey(k) { return panel.querySelector(':scope > [data-card="' + k + '"]'); }
+    function labelOf(k) { var el = byKey(k); return (el && el.dataset.label) || k; }
+    function load() {
+      var saved = [];
+      try { saved = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+      if (!Array.isArray(saved)) saved = [];
+      saved = saved.filter(function (k) { return DEFAULT.indexOf(k) !== -1; });
+      DEFAULT.forEach(function (k) { if (saved.indexOf(k) === -1) saved.push(k); });
+      return saved;
+    }
+    function save(order) {
+      try { localStorage.setItem(KEY, JSON.stringify(order)); } catch (e) {}
+    }
+    function applyOrder(order) {
+      order.forEach(function (k) { var el = byKey(k); if (el) panel.appendChild(el); });
+    }
+    function move(i, d) {
+      var order = load(), j = i + d;
+      if (j < 0 || j >= order.length) return;
+      var t = order[i]; order[i] = order[j]; order[j] = t;
+      save(order); applyOrder(order); renderList();
+    }
+    function renderList() {
+      var order = load();
+      list.innerHTML = '';
+      order.forEach(function (k, i) {
+        var li = document.createElement('li');
+        var nm = document.createElement('span');
+        nm.className = 'tabord-name'; nm.textContent = labelOf(k);
+        li.appendChild(nm);
+        [['tabord-up', '위로', '▲', -1], ['tabord-dn', '아래로', '▼', 1]].forEach(function (b) {
+          var x = document.createElement('button');
+          x.type = 'button'; x.className = b[0]; x.setAttribute('aria-label', labelOf(k) + ' ' + b[1]);
+          x.textContent = b[2];
+          x.disabled = (b[3] < 0 ? i === 0 : i === order.length - 1);
+          x.addEventListener('click', function () { move(i, b[3]); });
+          li.appendChild(x);
+        });
+        list.appendChild(li);
+      });
+    }
+    btn.addEventListener('click', function () { if (!box.hidden) renderList(); });
+    document.getElementById('tabOrderReset').addEventListener('click', function () {
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      applyOrder(DEFAULT.slice()); renderList();
+    });
+    applyOrder(load());
   })();
 
   // 지수 카드: 한 번에 하나만 펼쳐 두어 화면이 길어지지 않게 한다.
